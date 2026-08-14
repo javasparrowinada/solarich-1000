@@ -467,6 +467,121 @@ $("dRoomClear").addEventListener("click", () => {
 });
 $("dOutline").addEventListener("change", repaintDetail);
 
+/* =========================================================
+   一覧の書き出し（A4横 / ブラウザの印刷 → PDFで保存）
+   P1        … 全体マップ（10カテゴリー × 10枠）
+   P2以降    … 登録のあるカテゴリーごとに 5列×2行
+   ========================================================= */
+const PRINT = { mapW: 340, cellW: 900 };
+
+function shot(item, w) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = Math.round(w * (VIEW.y1 - VIEW.y0) / (VIEW.x1 - VIEW.x0));
+  paint(c, item, false);
+  return c.toDataURL("image/png");
+}
+
+function el(tag, cls, html) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (html != null) n.innerHTML = html;
+  return n;
+}
+
+function buildPrint() {
+  const root = $("printRoot");
+  root.innerHTML = "";
+
+  const filled = Object.values(S.items).filter(i => i.applied);
+  if (!filled.length) {
+    alert("登録済みの案がありません。詳細を開いて色や模様を指定し、「反映する」を押してください。");
+    return false;
+  }
+  const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+
+  /* ---- P1 全体マップ ---- */
+  const p1 = el("div", "p-page");
+  p1.appendChild(el("div", "p-head",
+    `<span class="t">SOLARICH 1000　着せ替えシート 検討一覧</span>
+     <span class="s">全体マップ　${CATALOG.length}カテゴリー / ${filled.length}案</span>
+     <span class="r">${today}</span>`));
+
+  const map = el("div", "p-map");
+  map.appendChild(el("div"));
+  for (let i = 1; i <= ITEMS_PER_CATEGORY; i++) map.appendChild(el("div", "colno", String(i).padStart(2, "0")));
+  for (const cat of CATALOG) {
+    map.appendChild(el("div", "rowlbl", cat.name));
+    for (const ci of cat.items) {
+      const item = S.items[ci.id];
+      if (item.applied) {
+        const cell = el("div", "mcell");
+        const im = new Image(); im.src = shot(item, PRINT.mapW);
+        cell.appendChild(im);
+        map.appendChild(cell);
+      } else {
+        map.appendChild(el("div", "mcell empty"));
+      }
+    }
+  }
+  p1.appendChild(map);
+  root.appendChild(p1);
+
+  /* ---- カテゴリーページ ---- */
+  for (const cat of CATALOG) {
+    const items = cat.items.map(ci => S.items[ci.id]).filter(i => i.applied);
+    if (!items.length) continue;
+
+    const pg = el("div", "p-page");
+    pg.appendChild(el("div", "p-head",
+      `<span class="t">${cat.name}</span>
+       <span class="s">${items.length}案</span>
+       <span class="r">SOLARICH 1000　着せ替えシート 検討一覧　/　${today}</span>`));
+
+    const grid = el("div", "p-grid");
+    for (const item of items) {
+      const cell = el("div", "p-cell");
+      const main = el("div", "p-main");
+      const im = new Image(); im.src = shot(item, PRINT.cellW);
+      main.appendChild(im);
+      cell.appendChild(main);
+
+      const foot = el("div", "p-foot");
+      if (item.room) {
+        const r = new Image(); r.className = "p-room"; r.src = item.room.src;
+        foot.appendChild(r);
+      } else {
+        foot.appendChild(el("div", "p-room none"));
+      }
+      const label = item.mode === "pattern" && item.pattern
+        ? (item.patternName || "模様")
+        : item.hex.toUpperCase();
+      foot.appendChild(el("div", "p-txt",
+        `<div class="p-no">${String(item.no).padStart(2, "0")}</div>
+         <div class="p-name">${item.name || "（名称未設定）"}</div>
+         <div class="p-code">${label}</div>`));
+      cell.appendChild(foot);
+      grid.appendChild(cell);
+    }
+    pg.appendChild(grid);
+    root.appendChild(pg);
+  }
+  return true;
+}
+
+$("btnExport").addEventListener("click", () => {
+  if (!S.base || !S.mask) { alert("画像の読み込みが終わっていません。"); return; }
+  let ok;
+  try { ok = buildPrint(); }
+  catch (e) {
+    alert("書き出しに失敗しました。静的サーバー経由（http://…）で開いてください。\n" + e.message);
+    return;
+  }
+  if (!ok) return;
+  setTimeout(() => window.print(), 120);
+});
+window.addEventListener("afterprint", () => { $("printRoot").innerHTML = ""; });
+
 /* ベース画像 */
 function setBase(img) {
   S.base = img;
