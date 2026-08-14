@@ -1169,6 +1169,115 @@ function downloadCanvas(canvas, name) {
   }, "image/png"));
 }
 
+/* =========================================================
+   共有用HTML（1ファイル完結・画像を埋め込む）
+   ========================================================= */
+const esc = s => String(s).replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function itemJpeg(item, w) {
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = Math.round(w * (VIEW.y1 - VIEW.y0) / (VIEW.x1 - VIEW.x0));
+  paint(c, item);
+  return c.toDataURL("image/jpeg", 0.92);
+}
+function roomJpeg(img, maxW) {
+  const s = Math.min(1, maxW / img.naturalWidth);
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth * s);
+  c.height = Math.round(img.naturalHeight * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.85);
+}
+
+function buildShareHtml(title, today) {
+  const cats = CATALOG.filter(c => c.items.some(ci => S.items[ci.id].applied));
+  const total = Object.values(S.items).filter(i => i.applied).length;
+
+  let body = "";
+  for (const cat of cats) {
+    const items = cat.items.map(ci => S.items[ci.id]).filter(i => i.applied);
+    body += `<section><h2>${esc(catNameOf(cat.id))}<span>${items.length}案</span></h2><div class="g">`;
+    for (const it of items) {
+      const label = it.mode === "pattern" && it.pattern ? (it.patternName || "模様") : it.hex.toUpperCase();
+      body += `<figure>
+        <img class="b" src="${itemJpeg(it, 1000)}" alt="">
+        ${it.room ? `<img class="r" src="${roomJpeg(it.room, 900)}" alt="">` : ""}
+        <figcaption><b>${String(it.no).padStart(2, "0")}</b>
+          <span class="n">${esc(it.name || "（名称未設定）")}</span>
+          <span class="c">${esc(label)}</span></figcaption>
+      </figure>`;
+    }
+    body += `</div></section>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(title)}｜SOLARICH 1000 着せ替えシート</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Noto Sans JP','Hiragino Sans','Yu Gothic',sans-serif;background:#F4F4F2;color:#1E1E1C;line-height:1.7;-webkit-font-smoothing:antialiased}
+header{background:#fff;border-bottom:1px solid rgba(0,0,0,.08);padding:22px 24px}
+.hd{max-width:1280px;margin:0 auto;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.hd h1{font-size:1.15rem;font-weight:900;color:#1F3A5F}
+.hd .s{font-size:.78rem;color:#6E6B66}
+.hd .d{margin-left:auto;font-size:.72rem;color:#9C9892}
+main{max-width:1280px;margin:0 auto;padding:8px 24px 72px}
+section{margin-top:40px}
+h2{font-size:1.05rem;font-weight:900;display:flex;align-items:baseline;gap:10px;margin-bottom:14px}
+h2 span{font-size:.72rem;font-weight:400;color:#9C9892}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+figure{background:#fff;border:1px solid rgba(0,0,0,.05);border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(30,30,28,.06)}
+figure img{width:100%;display:block}
+figure img.b{background:#FBFBFA}
+figure img.r{border-top:1px solid rgba(0,0,0,.06);aspect-ratio:16/9;object-fit:cover}
+figcaption{padding:11px 14px 13px;display:flex;align-items:baseline;gap:9px}
+figcaption b{font-size:.95rem;font-weight:900;color:#1F3A5F}
+figcaption .n{font-size:.84rem;font-weight:700;flex:1}
+figcaption .c{font-size:.66rem;color:#6E6B66}
+footer{text-align:center;font-size:.68rem;color:#9C9892;padding:0 20px 40px}
+@media print{body{background:#fff}figure{break-inside:avoid}}
+</style></head>
+<body>
+<header><div class="hd">
+  <h1>${esc(title)}</h1>
+  <span class="s">SOLARICH 1000 着せ替えシート 検討一覧　${cats.length}カテゴリー / ${total}案</span>
+  <span class="d">${esc(today)}</span>
+</div></header>
+<main>${body}</main>
+<footer>SOLARICH 1000 着せ替えシート検討｜このファイルは書き出し時点の内容です</footer>
+</body></html>`;
+}
+
+$("btnExpHtml").addEventListener("click", async () => {
+  if (!S.base || !S.mask) { alert("画像の読み込みが終わっていません。"); return; }
+  const filled = Object.values(S.items).filter(i => i.applied);
+  const msg = $("expMsg");
+  if (!filled.length) { msg.className = "saves-msg err"; msg.textContent = "登録済みの案がありません。"; return; }
+
+  const btn = $("btnExpHtml"); btn.disabled = true;
+  msg.className = "saves-msg"; msg.textContent = "書き出し中…";
+  try {
+    const data = S.currentSlot ? await DB.get(slotKey(S.currentSlot)) : null;
+    const title = (data && data.title) || "着せ替えシート 検討一覧";
+    const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+    const html = buildShareHtml(title, today);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${safeName(title)}_${new Date().toISOString().slice(0, 10)}.html`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    msg.className = "saves-msg ok";
+    msg.textContent = `書き出しました（${Math.round(blob.size / 1024)}KB）。そのまま送れます。`;
+  } catch (e) {
+    msg.className = "saves-msg err";
+    msg.textContent = "書き出せませんでした：" + e.message;
+  } finally { btn.disabled = false; }
+});
+
 $("btnExpPng").addEventListener("click", async () => {
   if (!S.base || !S.mask) { alert("画像の読み込みが終わっていません。"); return; }
   const filled = Object.values(S.items).filter(i => i.applied);
