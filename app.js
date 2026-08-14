@@ -32,7 +32,7 @@ for (const cat of CATALOG) {
       name: it.name || "",
       mode: "color",
       hex: "#EE7A20",
-      pattern: null, patternName: "",
+      pattern: null, patternName: "", prompt: "",
       fit: "cover", scale: 100, offX: 0, offY: 0, rot: 0,
       applied: false,
       room: null
@@ -277,6 +277,9 @@ function openDetail(id) {
   $("dOffY").value = it.offY;   $("vOffY").textContent = it.offY;
   $("dRot").value = it.rot;     $("vRot").textContent = it.rot + "°";
 
+  $("genPrompt").value = it.prompt || "";
+  genStatus("");
+
   refreshPatInfo();
   refreshRoom();
   refreshApplyBtn();
@@ -425,6 +428,109 @@ $("dHex").addEventListener("input", e => {
   $(["dR", "dG", "dB"][i]).value = e.target.value;
   setColor(hexFromRGB());
 }));
+
+/* ---------------------------------------------------------
+   プロンプトから柄を生成（Gemini API をブラウザから直接呼ぶ）
+   APIキーはこのページのメモリ上だけに置く。保存はしない。
+   --------------------------------------------------------- */
+S.apiKey = "";
+
+/* 生成させたいのは「シートに貼る平らな柄」なので、その条件を付け足す */
+function wrapPrompt(p) {
+  return `${p}
+
+上記のイメージで、製品に貼るシート用のテクスチャ画像を作ってください。
+条件:
+- 真上から見た平らな柄。立体的な影・光沢・反射・パースを付けない
+- 全面が柄で埋まっていること。余白・枠・背景の抜けを作らない
+- 文字・ロゴ・数字・人物・製品の絵を入れない
+- タイル状に繰り返しても継ぎ目が目立たない構成
+- 正方形`;
+}
+
+function genStatus(msg, cls) {
+  const el = $("genStatus");
+  el.textContent = msg;
+  el.className = "gen-status" + (cls ? " " + cls : "");
+}
+
+async function callGemini(model, key, prompt, withModalities) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const body = { contents: [{ parts: [{ text: prompt }] }] };
+  if (withModalities) body.generationConfig = { responseModalities: ["TEXT", "IMAGE"] };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify(body)
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const m = json?.error?.message || `${res.status} ${res.statusText}`;
+    const err = new Error(m);
+    err.status = res.status;
+    throw err;
+  }
+  const parts = json?.candidates?.[0]?.content?.parts || [];
+  const inline = parts.find(p => p.inlineData?.data);
+  if (!inline) {
+    const text = parts.map(p => p.text).filter(Boolean).join(" ").slice(0, 200);
+    throw new Error(text ? `画像が返りませんでした：${text}` : "画像が返りませんでした。");
+  }
+  return `data:${inline.inlineData.mimeType || "image/png"};base64,${inline.inlineData.data}`;
+}
+
+async function generatePattern() {
+  const it = cur(); if (!it) return;
+  const prompt = $("genPrompt").value.trim();
+  if (!prompt) { genStatus("プロンプトを入力してください。", "err"); return; }
+
+  const key = $("genKey").value.trim() || S.apiKey;
+  if (!key) { genStatus("Gemini APIキーを入力してください。", "err"); return; }
+  S.apiKey = key;
+
+  const model = $("genModel").value.trim() || "gemini-2.5-flash-image";
+  const btn = $("btnGen");
+  btn.disabled = true;
+  genStatus("生成中…", "busy");
+
+  try {
+    let dataUrl;
+    try {
+      dataUrl = await callGemini(model, key, wrapPrompt(prompt), false);
+    } catch (e) {
+      /* responseModalities を要求するモデル向けにもう一度 */
+      if (/modalit/i.test(e.message) || /画像が返りませんでした/.test(e.message)) {
+        dataUrl = await callGemini(model, key, wrapPrompt(prompt), true);
+      } else throw e;
+    }
+
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = dataUrl; });
+
+    it.pattern = img;
+    it.patternName = prompt.length > 28 ? prompt.slice(0, 28) + "…" : prompt;
+    it.prompt = prompt;
+    it.mode = "pattern";
+    setSeg("dMode", "mode", "pattern");
+    $("dColorArea").style.display = "none";
+    $("dPatArea").style.display = "";
+    refreshPatInfo(); repaintDetail(); refreshCard(it.id);
+
+    genStatus(it.applied
+      ? `生成しました（${img.naturalWidth}×${img.naturalHeight}px）。`
+      : `生成しました（${img.naturalWidth}×${img.naturalHeight}px）。「反映する」を押すと本体に反映されます。`, "ok");
+  } catch (e) {
+    genStatus("生成できませんでした：" + e.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+$("btnGen").addEventListener("click", generatePattern);
+$("genPrompt").addEventListener("input", e => { if (S.current) cur().prompt = e.target.value; });
+$("genPrompt").addEventListener("keydown", e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generatePattern();
+});
 
 $("dPatUp").addEventListener("click", () => pickFile(setPattern));
 wireDrop($("dPatUp"), setPattern);

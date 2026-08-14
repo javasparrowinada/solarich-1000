@@ -129,6 +129,22 @@ input[type=range]{width:100%;accent-color:var(--navy)}
 .hint{font-size:.66rem;color:var(--ink-faint);margin-top:8px;line-height:1.6}
 .footer{text-align:center;font-size:.7rem;color:var(--ink-faint);padding:8px 20px 48px}
 
+/* ---------- 柄の生成 ---------- */
+#genPrompt{font-size:.78rem;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;background:var(--white);color:var(--ink);resize:vertical;line-height:1.6;font-family:inherit}
+#genPrompt:focus{outline:2px solid rgba(31,58,95,.25);outline-offset:-1px}
+.gen-row{display:flex;gap:7px;margin-top:7px}
+.gen-row input{flex:1;min-width:0}
+.gen-status{font-size:.66rem;margin-top:7px;min-height:1.1em;color:var(--ink-faint);line-height:1.6}
+.gen-status.err{color:#C94C4C}
+.gen-status.ok{color:#3F8F5E}
+.gen-status.busy{color:var(--accent)}
+.gen-adv{margin-top:8px}
+.gen-adv summary{font-size:.66rem;color:var(--ink-faint);cursor:pointer;list-style:none}
+.gen-adv summary::-webkit-details-marker{display:none}
+.gen-adv summary::before{content:'▸ ';color:var(--navy)}
+.gen-adv[open] summary::before{content:'▾ '}
+.gen-adv input{margin-top:6px;font-size:.72rem}
+
 /* ================= 書き出し（A4横 PDF） ================= */
 #printRoot{display:none}
 @media print{
@@ -270,6 +286,22 @@ input[type=range]{width:100%;accent-color:var(--navy)}
 
           <div id="dPatArea" style="display:none">
             <div class="field">
+              <div class="field-label">プロンプトから生成</div>
+              <textarea id="genPrompt" rows="3" placeholder="例：北欧風の幾何学模様、青とベージュ、落ち着いたトーン"></textarea>
+              <div class="gen-row">
+                <input type="password" id="genKey" placeholder="Gemini APIキー" autocomplete="off" spellcheck="false">
+                <button class="btn btn-sm btn-primary" id="btnGen">生成</button>
+              </div>
+              <div class="gen-status" id="genStatus"></div>
+              <details class="gen-adv">
+                <summary>モデル</summary>
+                <input type="text" id="genModel" value="gemini-2.5-flash-image" spellcheck="false">
+                <div class="hint">生成に失敗する場合はモデル名を変えてください。APIキーはこのブラウザのメモリ上だけで扱い、保存も送信もしません。</div>
+              </details>
+            </div>
+
+            <div class="field">
+              <div class="field-label">画像から指定</div>
               <div class="mini-up" id="dPatUp">模様画像をドロップ / クリックして選択</div>
               <div class="pat-info" id="dPatInfo">
                 <img id="dPatThumb" alt=""><span class="m" id="dPatMeta"></span>
