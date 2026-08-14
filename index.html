@@ -63,10 +63,28 @@ button,input,select{font-family:inherit}
 .saves.show{display:block}
 .saves-head{font-size:.72rem;font-weight:900;color:var(--navy);margin-bottom:10px;display:flex;flex-direction:column}
 .saves-head span{font-weight:400;font-size:.64rem;color:var(--ink-faint)}
+.saves-wide{width:430px}
+.slot-scroll{max-height:56vh;overflow-y:auto;margin:0 -4px;padding:0 4px}
 .slot{display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)}
 .slot-i{flex:1;min-width:0;line-height:1.35}
 .slot-i b{font-size:.76rem;display:block}
 .slot-meta{font-size:.62rem;color:var(--ink-faint)}
+
+/* 版の行 */
+.vrow{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;padding:9px 8px;border-radius:10px;border:1px solid transparent;margin-top:2px}
+.vrow+.vrow{border-top:1px solid var(--line);border-radius:0 0 10px 10px}
+.vrow.on{background:var(--navy-light);border-color:rgba(31,58,95,.2);border-top-color:transparent}
+.vrow.empty .vname{color:var(--ink-faint)}
+.vdot{width:9px;height:9px;border-radius:50%;background:#DAD8D3;align-self:center;flex:none}
+.vrow.on .vdot{background:var(--accent)}
+.vrow.filled .vdot{background:var(--navy)}
+.vname{font-size:.78rem;font-weight:700;font-family:inherit;border:1px solid transparent;border-radius:7px;padding:4px 7px;background:transparent;width:100%;min-width:0}
+.vname:hover:not(:disabled){background:#F0EFEC}
+.vname:focus{outline:2px solid rgba(31,58,95,.25);background:var(--white)}
+.vname:disabled{cursor:default}
+.vfoot{grid-column:2;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.vmeta{font-size:.62rem;color:var(--ink-faint);margin-right:auto;font-variant-numeric:tabular-nums}
+.vfoot .btn{font-size:.64rem;padding:4px 10px}
 .saves-msg{font-size:.66rem;margin-top:8px;min-height:1.1em;color:var(--ink-faint)}
 .saves-msg.ok{color:#3F8F5E}.saves-msg.err{color:#C94C4C}
 
@@ -85,6 +103,10 @@ button,input,select{font-family:inherit}
 .card-name{font-size:.8rem;font-weight:700;flex:1;line-height:1.4}
 .card-name.empty{color:var(--ink-faint);font-weight:400}
 .card-no{font-size:.62rem;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.card-add{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:180px;background:transparent;border:2px dashed rgba(0,0,0,.13);box-shadow:none;color:var(--ink-faint)}
+.card-add:hover{border-color:var(--navy);color:var(--navy);background:var(--navy-light);transform:none;box-shadow:none}
+.card-add .plus{font-size:1.5rem;line-height:1}
+.card-add .t{font-size:.76rem;font-weight:700}
 
 /* ---------- detail ---------- */
 .overlay{position:fixed;inset:0;z-index:200;background:rgba(30,30,28,.5);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto}
@@ -216,15 +238,15 @@ input[type=range]{width:100%;accent-color:var(--navy)}
     <div class="brand">SOLARICH 1000 ｜ 着せ替えシート検討<small>色（RGB）と模様を本体に反映して比較する</small></div>
     <div class="topbar-actions">
       <button class="btn btn-sm" id="btnBase">ベース画像を差し替え</button>
-      <button class="btn btn-sm" id="btnSaves">保存 / 読込</button>
+      <button class="btn btn-sm" id="btnSaves">版：<b id="slotLabel">未保存</b> ▾</button>
       <button class="btn btn-sm btn-primary" id="btnExport">一覧を書き出し</button>
     </div>
   </div>
   <nav class="catnav" id="catnav"></nav>
 
-  <div class="saves" id="savePanel">
-    <div class="saves-head">保存スロット<span>3件まで。ブラウザ内に保存されます</span></div>
-    <div id="slotList"></div>
+  <div class="saves saves-wide" id="savePanel">
+    <div class="saves-head">版の切り替え<span>10件まで。名称は「テーマ名（作成者）」のように付けると分かりやすくなります</span></div>
+    <div class="slot-scroll" id="slotList"></div>
     <div class="saves-msg" id="savesMsg"></div>
   </div>
 

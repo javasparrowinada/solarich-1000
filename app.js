@@ -219,7 +219,7 @@ function buildCatalog() {
     sec.innerHTML = `<div class="cat-head"><span class="cat-num">${cat.id.replace("c", "")}</span>
         <input class="cat-name-input" data-cat="${cat.id}" value="${catNameOf(cat.id)}"
                title="クリックして名前を変更できます">
-        <span class="cat-count">${cat.items.length}枠</span></div>`;
+        <span class="cat-count">${cat.items.filter(it => S.items[it.id].applied).length} / ${cat.items.length}案</span></div>`;
     sec.querySelector(".cat-name-input").addEventListener("input", e => {
       S.catNames[cat.id] = e.target.value;
       a.textContent = e.target.value;
@@ -227,7 +227,18 @@ function buildCatalog() {
     });
     const grid = document.createElement("div");
     grid.className = "grid";
-    for (const it of cat.items) grid.appendChild(buildCard(S.items[it.id]));
+    /* 登録済みだけを並べる。未設定は出さない */
+    for (const it of cat.items) {
+      if (S.items[it.id].applied) grid.appendChild(buildCard(S.items[it.id]));
+    }
+    const next = cat.items.find(it => !S.items[it.id].applied);
+    if (next) {
+      const add = document.createElement("button");
+      add.className = "card card-add";
+      add.innerHTML = `<span class="plus">＋</span><span class="t">案を追加</span>`;
+      add.addEventListener("click", () => openDetail(next.id));
+      grid.appendChild(add);
+    }
     sec.appendChild(grid);
     root.appendChild(sec);
   }
@@ -452,7 +463,7 @@ $("btnApply").addEventListener("click", () => {
   it.applied = !it.applied;
   refreshApplyBtn();
   repaintDetail();
-  refreshCard(it.id);
+  buildCatalog();          // 一覧に出る／出ないが変わるので作り直す
 });
 
 $("dName").addEventListener("input", e => {
@@ -671,10 +682,12 @@ const DB = (() => {
   };
 })();
 
-const SLOTS = [1, 2, 3];
+const SLOT_COUNT = 10;
+const SLOTS = Array.from({ length: SLOT_COUNT }, (_, i) => i + 1);
 const slotKey = n => "slot" + n;
+S.currentSlot = null;
 
-function snapshot() {
+function snapshot(title) {
   const items = [];
   for (const it of Object.values(S.items)) {
     const used = it.applied || it.name || it.room || it.pattern || it.prompt;
@@ -690,7 +703,7 @@ function snapshot() {
       roomBlob: it.roomBlob || null
     });
   }
-  return { savedAt: new Date().toISOString(), catNames: { ...S.catNames }, items };
+  return { title: title || "", savedAt: new Date().toISOString(), catNames: { ...S.catNames }, items };
 }
 
 async function restore(data) {
@@ -738,41 +751,106 @@ function savesMsg(m, cls) {
   el.textContent = m; el.className = "saves-msg" + (cls ? " " + cls : "");
 }
 
+function slotLabel(data, n) {
+  return (data && data.title) ? data.title : (data ? `版 ${n}` : "");
+}
+function updateSlotLabel(data, n) {
+  $("slotLabel").textContent = data ? slotLabel(data, n) : "未保存";
+}
+
 async function renderSlots() {
   const list = $("slotList");
   list.innerHTML = "";
+
   for (const n of SLOTS) {
     const data = await DB.get(slotKey(n)).catch(() => null);
     const row = document.createElement("div");
-    row.className = "slot";
-    const when = data
+    row.className = "vrow " + (data ? "filled" : "empty") + (S.currentSlot === n ? " on" : "");
+
+    const dot = document.createElement("span");
+    dot.className = "vdot";
+    row.appendChild(dot);
+
+    const name = document.createElement("input");
+    name.className = "vname";
+    name.type = "text";
+    name.value = data ? slotLabel(data, n) : "";
+    name.placeholder = `版 ${n}（空き）`;
+    name.disabled = !data;
+    name.addEventListener("input", () => {
+      clearTimeout(name._t);
+      name._t = setTimeout(async () => {
+        const cur = await DB.get(slotKey(n));
+        if (!cur) return;
+        cur.title = name.value.trim();
+        await DB.put(slotKey(n), cur);
+        if (S.currentSlot === n) updateSlotLabel(cur, n);
+      }, 400);
+    });
+    row.appendChild(name);
+
+    const foot = document.createElement("div");
+    foot.className = "vfoot";
+    const meta = document.createElement("span");
+    meta.className = "vmeta";
+    meta.textContent = data
       ? new Date(data.savedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
         + `　${data.items.filter(i => i.applied).length}案`
       : "未保存";
-    row.innerHTML = `<div class="slot-i"><b>スロット${n}</b><span class="slot-meta">${when}</span></div>`;
+    foot.appendChild(meta);
+
     const mk = (label, cls, fn) => {
       const b = document.createElement("button");
       b.className = "btn btn-sm" + (cls ? " " + cls : "");
       b.textContent = label;
       b.addEventListener("click", fn);
-      return b;
+      foot.appendChild(b);
     };
-    row.appendChild(mk("保存", "", async () => {
-      if (data && !confirm(`スロット${n} を上書きします。よろしいですか？`)) return;
-      try { await DB.put(slotKey(n), snapshot()); savesMsg(`スロット${n} に保存しました。`, "ok"); renderSlots(); }
-      catch (e) { savesMsg("保存できませんでした：" + e.message, "err"); }
-    }));
-    if (data) {
-      row.appendChild(mk("読込", "", async () => {
-        if (!confirm(`スロット${n} を読み込みます。いまの内容は失われます。よろしいですか？`)) return;
-        try { await restore(data); savesMsg(`スロット${n} を読み込みました。`, "ok"); }
-        catch (e) { savesMsg("読み込めませんでした：" + e.message, "err"); }
-      }));
-      row.appendChild(mk("削除", "btn-ghost", async () => {
-        if (!confirm(`スロット${n} を削除します。よろしいですか？`)) return;
-        await DB.del(slotKey(n)); savesMsg(`スロット${n} を削除しました。`); renderSlots();
-      }));
+
+    if (!data) {
+      mk("ここに保存", "btn-primary", async () => {
+        try {
+          await DB.put(slotKey(n), snapshot(`版 ${n}`));
+          S.currentSlot = n;
+          const d = await DB.get(slotKey(n));
+          updateSlotLabel(d, n);
+          savesMsg(`版 ${n} として保存しました。名称を入力できます。`, "ok");
+          await renderSlots();
+          const inp = list.querySelectorAll(".vname")[n - 1];
+          if (inp) { inp.focus(); inp.select(); }
+        } catch (e) { savesMsg("保存できませんでした：" + e.message, "err"); }
+      });
+    } else {
+      if (S.currentSlot !== n) {
+        mk("切替", "btn-primary", async () => {
+          if (!confirm(`「${slotLabel(data, n)}」に切り替えます。\n保存していない変更は失われます。よろしいですか？`)) return;
+          try {
+            await restore(data);
+            S.currentSlot = n;
+            updateSlotLabel(data, n);
+            savesMsg(`「${slotLabel(data, n)}」に切り替えました。`, "ok");
+            renderSlots();
+          } catch (e) { savesMsg("切り替えられませんでした：" + e.message, "err"); }
+        });
+      }
+      mk("上書き保存", "", async () => {
+        if (!confirm(`「${slotLabel(data, n)}」をいまの内容で上書きします。よろしいですか？`)) return;
+        try {
+          await DB.put(slotKey(n), snapshot(data.title || `版 ${n}`));
+          S.currentSlot = n;
+          savesMsg(`「${slotLabel(data, n)}」を上書きしました。`, "ok");
+          renderSlots();
+        } catch (e) { savesMsg("保存できませんでした：" + e.message, "err"); }
+      });
+      mk("削除", "btn-ghost", async () => {
+        if (!confirm(`「${slotLabel(data, n)}」を削除します。よろしいですか？`)) return;
+        await DB.del(slotKey(n));
+        if (S.currentSlot === n) { S.currentSlot = null; updateSlotLabel(null, n); }
+        savesMsg("削除しました。");
+        renderSlots();
+      });
     }
+    row.appendChild(foot);
     list.appendChild(row);
   }
 }
@@ -780,8 +858,9 @@ async function renderSlots() {
 $("btnSaves").addEventListener("click", e => {
   e.stopPropagation();
   const p = $("savePanel");
+  $("exportPanel").classList.remove("show");
   p.classList.toggle("show");
-  if (p.classList.contains("show")) renderSlots();
+  if (p.classList.contains("show")) { savesMsg(""); renderSlots(); }
 });
 document.addEventListener("click", e => {
   const p = $("savePanel");
@@ -824,9 +903,18 @@ function buildPrint() {
   /* ---- P1 全体マップ ---- */
   const p1 = el("div", "p-page");
   const map = el("div", "p-map");
+  /* 1案も登録がないカテゴリーは出さない */
+  const cats = CATALOG.filter(c => c.items.some(ci => S.items[ci.id].applied));
+  /* 行数に応じてマスの大きさを決める（A4横・余白14mmに収める） */
+  const capH = 2.4, rowGap = 1.5, chrome = 12;      // mm
+  const availH = 182 - chrome;
+  let cellW = (availH - cats.length * capH - (cats.length - 1) * rowGap) / cats.length * 910 / 625;
+  cellW = Math.min(cellW, 21.2);
+  map.style.gridTemplateColumns = `24mm repeat(${ITEMS_PER_CATEGORY}, ${cellW.toFixed(2)}mm)`;
+
   map.appendChild(el("div"));
   for (let i = 1; i <= ITEMS_PER_CATEGORY; i++) map.appendChild(el("div", "colno", String(i).padStart(2, "0")));
-  for (const cat of CATALOG) {
+  for (const cat of cats) {
     const n = cat.items.filter(ci => S.items[ci.id].applied).length;
     map.appendChild(el("div", "rowlbl",
       `${catNameOf(cat.id)}<small>${n ? n + "案" : "－"}</small>`));
@@ -967,23 +1055,28 @@ function newPage() {
 function pngOverview() {
   const { c, g } = newPage();
   const { PAD, W, H } = PNG;
-  const top = PAD;
 
   const labelW = 190, colGap = 26, rowGap = 10, capH = 22, numH = 24;
-  const cols = ITEMS_PER_CATEGORY, rows = CATALOG.length;
-  const thH = (H - PAD * 2 - numH - rows * capH - rowGap * (rows - 1)) / rows;
-  const thW = thH * 910 / 625;
-  const x0 = Math.max(PAD, (W - (labelW + cols * thW + colGap * cols)) / 2);
+  const cols = ITEMS_PER_CATEGORY;
+  /* 1案も登録がないカテゴリーは出さない */
+  const cats = CATALOG.filter(c => c.items.some(ci => S.items[ci.id].applied));
+  const rows = cats.length;
+  let thH = (H - PAD * 2 - numH - rows * capH - rowGap * (rows - 1)) / rows;
+  let thW = thH * 910 / 625;
+  const maxW = (W - PAD * 2 - labelW - colGap * cols) / cols;
+  if (thW > maxW) { thW = maxW; thH = thW * 625 / 910; }
   const rowH = thH + capH;
+  const x0 = Math.max(PAD, (W - (labelW + cols * thW + colGap * cols)) / 2);
+  const y0 = PAD + Math.max(0, (H - PAD * 2 - numH - rows * rowH - rowGap * (rows - 1)) / 2);
 
   g.font = "700 14px 'Noto Sans JP', sans-serif";
   g.fillStyle = "#9C9892"; g.textAlign = "center";
   for (let i = 0; i < cols; i++)
-    g.fillText(String(i + 1).padStart(2, "0"), x0 + labelW + colGap + i * (thW + colGap) + thW / 2, top + 16);
+    g.fillText(String(i + 1).padStart(2, "0"), x0 + labelW + colGap + i * (thW + colGap) + thW / 2, y0 + 16);
   g.textAlign = "left";
 
-  CATALOG.forEach((cat, r) => {
-    const y = top + numH + r * (rowH + rowGap);
+  cats.forEach((cat, r) => {
+    const y = y0 + numH + r * (rowH + rowGap);
     const n = cat.items.filter(ci => S.items[ci.id].applied).length;
     g.fillStyle = "#1F3A5F"; g.font = "700 16px 'Noto Sans JP', sans-serif";
     g.fillText(clipText(g, catNameOf(cat.id), labelW - 16), x0, y + thH / 2 - 2);
