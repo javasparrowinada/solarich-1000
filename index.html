@@ -185,12 +185,15 @@ input[type=range]{width:100%;accent-color:var(--navy)}
 .p-head .r{margin-left:auto;font-size:7pt;color:#9C9892}
 
 /* 全体マップ（A4横の余白14mmに収まる寸法で固定） */
-.p-map{display:grid;grid-template-columns:20mm repeat(10,21mm);gap:1.5mm;align-items:stretch;justify-content:center}
-.p-map .rowlbl{font-size:7pt;font-weight:700;color:#1F3A5F;display:flex;align-items:center;line-height:1.3}
-.p-map .colno{font-size:6.5pt;color:#9C9892;text-align:center}
-.p-map .mcell{border:.4px solid #E2E0DC;border-radius:1.2mm;overflow:hidden;background:#FBFBFA;aspect-ratio:910/625;display:flex;align-items:center;justify-content:center}
-.p-map .mcell img{width:100%;height:100%;object-fit:cover;display:block}
-.p-map .mcell.empty{background:repeating-linear-gradient(45deg,#F7F6F4,#F7F6F4 1mm,#F1F0ED 1mm,#F1F0ED 2mm)}
+.p-map{display:grid;grid-template-columns:24mm repeat(10,18.5mm);column-gap:3mm;row-gap:1.5mm;justify-content:center}
+.p-map .rowlbl{font-size:7.5pt;font-weight:700;color:#1F3A5F;display:flex;flex-direction:column;justify-content:center;line-height:1.25;padding-right:1mm}
+.p-map .rowlbl small{font-size:5.5pt;font-weight:400;color:#9C9892}
+.p-map .colno{font-size:6.5pt;color:#9C9892;text-align:center;padding-bottom:.5mm}
+.p-map .mcell{display:flex;flex-direction:column;gap:.6mm}
+.p-map .mthumb{border:.4px solid #E2E0DC;border-radius:1.2mm;overflow:hidden;background:#FBFBFA;aspect-ratio:910/625}
+.p-map .mthumb img{width:100%;height:100%;object-fit:cover;display:block}
+.p-map .mthumb.empty{background:repeating-linear-gradient(45deg,#F7F6F4,#F7F6F4 1mm,#F1F0ED 1mm,#F1F0ED 2mm)}
+.p-map .mcap{font-size:5.2pt;line-height:1.2;height:2.4mm;color:#3A3A38;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 
 /* カテゴリーページ */
 .p-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:3.5mm}

@@ -823,26 +823,24 @@ function buildPrint() {
 
   /* ---- P1 全体マップ ---- */
   const p1 = el("div", "p-page");
-  p1.appendChild(el("div", "p-head",
-    `<span class="t">SOLARICH 1000　着せ替えシート 検討一覧</span>
-     <span class="s">全体マップ　${CATALOG.length}カテゴリー / ${filled.length}案</span>
-     <span class="r">${today}</span>`));
-
   const map = el("div", "p-map");
   map.appendChild(el("div"));
   for (let i = 1; i <= ITEMS_PER_CATEGORY; i++) map.appendChild(el("div", "colno", String(i).padStart(2, "0")));
   for (const cat of CATALOG) {
-    map.appendChild(el("div", "rowlbl", catNameOf(cat.id)));
+    const n = cat.items.filter(ci => S.items[ci.id].applied).length;
+    map.appendChild(el("div", "rowlbl",
+      `${catNameOf(cat.id)}<small>${n ? n + "案" : "－"}</small>`));
     for (const ci of cat.items) {
       const item = S.items[ci.id];
+      const cell = el("div", "mcell");
+      const th = el("div", "mthumb" + (item.applied ? "" : " empty"));
       if (item.applied) {
-        const cell = el("div", "mcell");
         const im = new Image(); im.src = shot(item, PRINT.mapW);
-        cell.appendChild(im);
-        map.appendChild(cell);
-      } else {
-        map.appendChild(el("div", "mcell empty"));
+        th.appendChild(im);
       }
+      cell.appendChild(th);
+      cell.appendChild(el("div", "mcap", item.applied ? (item.name || "&nbsp;") : "&nbsp;"));
+      map.appendChild(cell);
     }
   }
   p1.appendChild(map);
@@ -966,39 +964,51 @@ function newPage() {
   return { c, g };
 }
 
-function pngOverview(today, total) {
+function pngOverview() {
   const { c, g } = newPage();
   const { PAD, W, H } = PNG;
-  const top = pngHeader(g, "SOLARICH 1000　着せ替えシート 検討一覧",
-    `全体マップ　${CATALOG.length}カテゴリー / ${total}案`, today) + 26;
+  const top = PAD;
 
-  const labelW = 150, gap = 8, cols = ITEMS_PER_CATEGORY, rows = CATALOG.length, numH = 22;
-  const cellH = (H - PAD - (top + numH) - gap * (rows - 1)) / rows;
-  const cellW = cellH * 910 / 625;
-  const x0 = Math.max(PAD, (W - (labelW + cols * cellW + gap * cols)) / 2);
+  const labelW = 190, colGap = 26, rowGap = 10, capH = 22, numH = 24;
+  const cols = ITEMS_PER_CATEGORY, rows = CATALOG.length;
+  const thH = (H - PAD * 2 - numH - rows * capH - rowGap * (rows - 1)) / rows;
+  const thW = thH * 910 / 625;
+  const x0 = Math.max(PAD, (W - (labelW + cols * thW + colGap * cols)) / 2);
+  const rowH = thH + capH;
 
-  g.font = "700 13px 'Noto Sans JP', sans-serif";
+  g.font = "700 14px 'Noto Sans JP', sans-serif";
   g.fillStyle = "#9C9892"; g.textAlign = "center";
   for (let i = 0; i < cols; i++)
-    g.fillText(String(i + 1).padStart(2, "0"), x0 + labelW + gap + i * (cellW + gap) + cellW / 2, top + 15);
+    g.fillText(String(i + 1).padStart(2, "0"), x0 + labelW + colGap + i * (thW + colGap) + thW / 2, top + 16);
   g.textAlign = "left";
 
   CATALOG.forEach((cat, r) => {
-    const y = top + numH + r * (cellH + gap);
-    g.fillStyle = "#1F3A5F"; g.font = "700 14px 'Noto Sans JP', sans-serif";
-    g.fillText(clipText(g, catNameOf(cat.id), labelW - 12), x0, y + cellH / 2 + 5);
+    const y = top + numH + r * (rowH + rowGap);
+    const n = cat.items.filter(ci => S.items[ci.id].applied).length;
+    g.fillStyle = "#1F3A5F"; g.font = "700 16px 'Noto Sans JP', sans-serif";
+    g.fillText(clipText(g, catNameOf(cat.id), labelW - 16), x0, y + thH / 2 - 2);
+    g.fillStyle = "#9C9892"; g.font = "400 12px 'Noto Sans JP', sans-serif";
+    g.fillText(n ? n + "案" : "－", x0, y + thH / 2 + 15);
+
     cat.items.forEach((ci, i) => {
       const item = S.items[ci.id];
-      const x = x0 + labelW + gap + i * (cellW + gap);
+      const x = x0 + labelW + colGap + i * (thW + colGap);
       if (item.applied) {
         const t = document.createElement("canvas");
-        t.width = Math.round(cellW * 2); t.height = Math.round(cellH * 2);
+        t.width = Math.round(thW * 2); t.height = Math.round(thH * 2);
         paint(t, item);
-        g.save(); rr(g, x, y, cellW, cellH, 4); g.clip();
-        g.drawImage(t, x, y, cellW, cellH); g.restore();
-      } else hatch(g, x, y, cellW, cellH);
+        g.save(); rr(g, x, y, thW, thH, 4); g.clip();
+        g.drawImage(t, x, y, thW, thH); g.restore();
+      } else hatch(g, x, y, thW, thH);
       g.strokeStyle = "#E2E0DC"; g.lineWidth = 1;
-      rr(g, x + .5, y + .5, cellW - 1, cellH - 1, 4); g.stroke();
+      rr(g, x + .5, y + .5, thW - 1, thH - 1, 4); g.stroke();
+
+      if (item.applied && item.name) {
+        g.fillStyle = "#3A3A38"; g.font = "400 11px 'Noto Sans JP', sans-serif";
+        g.textAlign = "center";
+        g.fillText(clipText(g, item.name, thW), x + thW / 2, y + thH + 14);
+        g.textAlign = "left";
+      }
     });
   });
   return c;
@@ -1077,7 +1087,7 @@ $("btnExpPng").addEventListener("click", async () => {
   try {
     if (document.fonts && document.fonts.ready) await document.fonts.ready;
     const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
-    const pages = [["01_全体マップ", pngOverview(today, filled.length)]];
+    const pages = [["01_全体マップ", pngOverview()]];
     let n = 1;
     for (const cat of CATALOG) {
       const items = cat.items.map(ci => S.items[ci.id]).filter(i => i.applied);
