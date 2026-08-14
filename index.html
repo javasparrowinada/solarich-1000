@@ -7,156 +7,253 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#F4F4F2;--white:#fff;--ink:#1E1E1C;--ink-light:#6E6B66;--line:rgba(0,0,0,.08);--accent:#F5A623;--accent-dark:#D4841A;--navy:#1F3A5F;--navy-light:#EDF1F7;--green:#3F8F5E;--green-light:#E9F3EC;--red:#C94C4C;--red-light:#FBEFEF;--shadow:0 4px 24px rgba(30,30,28,.06)}
-html{scroll-behavior:smooth}
-body{font-family:'Noto Sans JP',sans-serif;color:var(--ink);background:var(--bg);line-height:1.85;font-size:15px}
+:root{
+  --bg:#F4F4F2;--white:#fff;--ink:#1E1E1C;--ink-light:#6E6B66;--ink-faint:#9C9892;
+  --line:rgba(0,0,0,.09);--navy:#1F3A5F;--navy-light:#EDF1F7;--accent:#EE7A20;
+  --shadow:0 4px 24px rgba(30,30,28,.07);--shadow-lg:0 24px 64px rgba(30,30,28,.18);
+}
+body{font-family:'Noto Sans JP',sans-serif;color:var(--ink);background:var(--bg);line-height:1.7;font-size:15px;-webkit-font-smoothing:antialiased}
+button,input,select{font-family:inherit}
 
-.topbar{position:sticky;top:0;z-index:100;background:var(--white);border-bottom:1px solid var(--line);padding:14px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.topbar-brand{font-weight:900;font-size:.85rem;color:var(--navy);letter-spacing:.04em}
-.topbar-brand a{color:inherit;text-decoration:none}
-.topbar-nav{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
-.topbar-nav a{font-size:.72rem;font-weight:700;color:var(--ink-light);text-decoration:none;padding:6px 12px;border-radius:100px;transition:all .2s}
-.topbar-nav a:hover,.topbar-nav a.active{background:var(--navy-light);color:var(--navy)}
+/* ---------- topbar ---------- */
+.topbar{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.topbar-main{padding:12px 24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{font-weight:900;font-size:.86rem;color:var(--navy);letter-spacing:.03em}
+.brand small{display:block;font-size:.66rem;font-weight:400;color:var(--ink-faint);letter-spacing:0}
+.topbar-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.catnav{display:flex;gap:6px;padding:0 24px 10px;overflow-x:auto;scrollbar-width:none}
+.catnav::-webkit-scrollbar{display:none}
+.catnav a{white-space:nowrap;font-size:.72rem;font-weight:700;color:var(--ink-light);text-decoration:none;padding:5px 12px;border-radius:100px;border:1px solid var(--line);transition:all .15s}
+.catnav a:hover{background:var(--navy-light);color:var(--navy);border-color:transparent}
 
-.header{background:linear-gradient(135deg,var(--navy),#2F5585);color:var(--white);padding:56px 24px 48px;text-align:center}
-.header h1{font-size:clamp(1.3rem,4vw,1.9rem);font-weight:900;margin-bottom:8px}
-.header p{opacity:.82;font-size:.9rem;font-weight:300;max-width:640px;margin:0 auto}
-.header-meta{margin-top:20px;font-size:.72rem;opacity:.65}
+/* ---------- buttons ---------- */
+.btn{font-size:.76rem;font-weight:700;border:1px solid var(--line);background:var(--white);color:var(--ink);padding:8px 15px;border-radius:100px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:hover{background:#F6F5F3}
+.btn-primary{background:var(--navy);border-color:var(--navy);color:var(--white)}
+.btn-primary:hover{background:#16293F}
+.btn-sm{font-size:.7rem;padding:6px 12px}
+.btn-ghost{border-color:transparent;background:transparent;color:var(--ink-light)}
+.btn-ghost:hover{background:#F0EFEC}
 
-.main{max-width:1100px;margin:0 auto;padding:40px 20px 80px}
-.section{margin-bottom:56px;scroll-margin-top:70px}
-.section-badge{display:inline-flex;font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:5px 14px;border-radius:100px;margin-bottom:16px;background:var(--navy-light);color:var(--navy)}
-.section h2{font-size:1.3rem;font-weight:900;margin-bottom:8px;line-height:1.4}
-.section>.desc{color:var(--ink-light);font-size:.9rem;margin-bottom:28px;font-weight:300}
+/* ---------- hero ---------- */
+.hero{max-width:1320px;margin:0 auto;padding:30px 24px 6px}
+.hero h1{font-size:clamp(1.2rem,3vw,1.6rem);font-weight:900;line-height:1.45}
+.hero p{color:var(--ink-light);font-size:.84rem;font-weight:300;margin-top:6px;max-width:780px}
+.hero .stats{display:flex;gap:18px;margin-top:12px;flex-wrap:wrap;font-size:.74rem;color:var(--ink-light)}
+.hero .stats b{color:var(--navy);font-size:.95rem;font-weight:900}
+.basebar{max-width:1320px;margin:16px auto 0;padding:0 24px}
+.basebar-inner{background:#FFF6EC;border:1px solid rgba(238,122,32,.25);border-radius:12px;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:.78rem}
+.basebar-inner.ok{background:var(--navy-light);border-color:rgba(31,58,95,.15)}
+.basebar-inner .lbl{font-weight:700;color:var(--accent)}
+.basebar-inner.ok .lbl{color:var(--navy)}
+.basebar-inner .msg{color:var(--ink-light);flex:1;min-width:200px}
 
-.card{background:var(--white);border-radius:16px;box-shadow:var(--shadow);padding:28px;margin-bottom:20px;border:1px solid rgba(0,0,0,.04)}
-.card h3{font-size:1rem;font-weight:700;margin-bottom:6px}
-.card p,.card li{font-size:.88rem;color:var(--ink-light);line-height:1.8}
-.card ul{padding-left:1.2em;margin-top:8px}
+/* ---------- catalog ---------- */
+.main{max-width:1320px;margin:0 auto;padding:20px 24px 90px}
+.cat{margin-top:40px;scroll-margin-top:110px}
+.cat-head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:14px}
+.cat-num{font-size:.66rem;font-weight:900;letter-spacing:.08em;color:var(--white);background:var(--navy);padding:3px 9px;border-radius:100px}
+.cat-head h2{font-size:1.1rem;font-weight:900}
+.cat-count{font-size:.7rem;color:var(--ink-faint)}
 
-.tbl{width:100%;border-collapse:collapse;font-size:.84rem;margin:16px 0}
-.tbl th{text-align:left;padding:10px 14px;font-weight:700;font-size:.78rem;background:rgba(31,58,95,.06);border-bottom:2px solid rgba(31,58,95,.15);color:var(--navy)}
-.tbl td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
-.tbl tr:last-child td{border-bottom:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.card{background:var(--white);border-radius:14px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:left;padding:0;width:100%;display:block}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(30,30,28,.13)}
+.card-visual{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+.card-pane{background:#FBFBFA;aspect-ratio:48/33;position:relative;overflow:hidden}
+.card-pane canvas{width:100%;height:100%;display:block}
+.card-pane img{width:100%;height:100%;object-fit:cover;display:block}
+.pane-tag{position:absolute;left:6px;top:6px;z-index:2;font-size:.56rem;font-weight:700;letter-spacing:.06em;background:rgba(255,255,255,.82);color:var(--ink-light);padding:2px 7px;border-radius:100px;pointer-events:none}
+.room-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;height:100%;color:var(--ink-faint);font-size:.66rem;text-align:center;background:repeating-linear-gradient(45deg,#F7F6F4,#F7F6F4 8px,#F1F0ED 8px,#F1F0ED 16px)}
+.room-empty .plus{font-size:1.05rem;line-height:1}
+.card-meta{padding:10px 13px 12px;display:flex;align-items:center;gap:9px}
+.card-chip{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.12);flex:none}
+.card-name{font-size:.8rem;font-weight:700;flex:1;line-height:1.4}
+.card-name.empty{color:var(--ink-faint);font-weight:400}
+.card-no{font-size:.62rem;color:var(--ink-faint);font-variant-numeric:tabular-nums}
 
-.plan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;margin-top:8px}
-.plan{background:var(--white);border-radius:16px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
-.plan-visual{aspect-ratio:4/3;background:repeating-linear-gradient(45deg,#EFEEEB,#EFEEEB 10px,#E7E6E2 10px,#E7E6E2 20px);display:flex;align-items:center;justify-content:center;color:#A9A6A0;font-size:.75rem;font-weight:700;letter-spacing:.08em}
-.plan-visual img{width:100%;height:100%;object-fit:cover;display:block}
-.plan-body{padding:18px 20px 20px}
-.plan-tag{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:8px;background:var(--navy-light);color:var(--navy);margin-bottom:8px}
-.plan h3{font-size:.98rem;font-weight:700;margin-bottom:6px}
-.plan p{font-size:.82rem;color:var(--ink-light);line-height:1.75}
-.plan-note{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);font-size:.78rem;color:var(--ink-light)}
+/* ---------- detail ---------- */
+.overlay{position:fixed;inset:0;z-index:200;background:rgba(30,30,28,.5);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto}
+.overlay.show{display:flex}
+.sheet{background:var(--bg);border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:1180px;overflow:hidden;margin:auto}
+.sheet-head{background:var(--white);border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+.sheet-head .cat{font-size:.62rem;font-weight:700;letter-spacing:.06em;color:var(--white);background:var(--navy);padding:3px 9px;border-radius:100px}
+.sheet-head .no{font-size:.66rem;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+#dName{font-size:.9rem;font-weight:700;border:1px solid transparent;border-radius:8px;padding:6px 10px;width:230px;background:#F6F5F3}
+#dName:focus{outline:2px solid rgba(31,58,95,.25);background:var(--white)}
+.sheet-head .nav{margin-left:auto;display:flex;gap:6px;align-items:center}
+.sheet-body{display:grid;grid-template-columns:1fr 330px;gap:18px;padding:18px 20px 24px}
+@media(max-width:900px){.sheet-body{grid-template-columns:1fr}.overlay{padding:0}.sheet{border-radius:0;min-height:100%}}
 
-.callout{border-radius:12px;padding:18px 22px;font-size:.85rem;line-height:1.8;margin:16px 0}
-.callout-open{background:var(--red-light);border:1px solid rgba(201,76,76,.14)}
-.callout-open::before{content:'要検討 ';font-weight:700;color:var(--red);font-size:.75rem;letter-spacing:.06em}
-.callout-fix{background:var(--green-light);border:1px solid rgba(63,143,94,.14)}
-.callout-fix::before{content:'FIX ';font-weight:700;color:var(--green);font-size:.75rem;letter-spacing:.06em}
+.preview-col{display:flex;flex-direction:column;gap:14px}
+.pv{background:var(--white);border-radius:14px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);padding:13px}
+.pv-title{font-size:.68rem;font-weight:700;letter-spacing:.05em;color:var(--ink-light);margin-bottom:9px;display:flex;align-items:center;gap:8px}
+.pv-title .sp{margin-left:auto;display:flex;gap:6px;align-items:center}
+.pv-canvas{width:100%;background:#FBFBFA;border-radius:10px;overflow:hidden}
+.pv-canvas canvas{width:100%;height:auto;display:block}
+.state{font-size:.66rem;font-weight:700;color:var(--ink-faint);background:#F1F0ED;padding:3px 10px;border-radius:100px}
+.state.on{color:var(--white);background:var(--accent)}
+.room-box{width:100%;border-radius:10px;overflow:hidden;background:#FBFBFA}
+.room-box img{width:100%;height:auto;display:block;max-height:420px;object-fit:cover}
+.room-drop{border:2px dashed rgba(0,0,0,.14);border-radius:10px;padding:30px 16px;text-align:center;cursor:pointer;background:#FBFBFA;transition:all .15s}
+.room-drop:hover,.room-drop.over{border-color:var(--navy);background:var(--navy-light)}
+.room-drop strong{display:block;font-size:.8rem;margin-bottom:2px}
+.room-drop span{font-size:.7rem;color:var(--ink-light)}
 
-.footer{text-align:center;font-size:.72rem;color:var(--ink-light);padding:32px 20px 48px}
-@media(max-width:640px){.main{padding:28px 16px 60px}.card{padding:20px}}
+.ctrl-col{display:flex;flex-direction:column;gap:13px}
+.box{background:var(--white);border-radius:14px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);padding:15px 17px}
+.box h4{font-size:.7rem;font-weight:900;letter-spacing:.06em;color:var(--navy);margin-bottom:11px}
+.field{margin-top:11px}
+.field-label{font-size:.68rem;font-weight:700;color:var(--ink-light);margin-bottom:5px;display:flex;justify-content:space-between}
+.field-label .val{font-weight:400;font-variant-numeric:tabular-nums}
+.color-row{display:flex;gap:8px;align-items:center}
+input[type=color]{width:50px;height:38px;border:1px solid var(--line);border-radius:9px;background:none;padding:3px;cursor:pointer;flex:none}
+input[type=text],input[type=number]{font-size:.8rem;border:1px solid var(--line);border-radius:9px;padding:8px 10px;width:100%;background:var(--white);color:var(--ink)}
+input:focus{outline:2px solid rgba(31,58,95,.25);outline-offset:-1px}
+.rgb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.rgb-grid label{font-size:.6rem;font-weight:700;color:var(--ink-light);display:block;margin-bottom:3px}
+input[type=range]{width:100%;accent-color:var(--navy)}
+.seg{display:flex;background:#F0EFEC;border-radius:9px;padding:3px;gap:3px}
+.seg button{flex:1;border:none;background:transparent;font-size:.7rem;font-weight:700;color:var(--ink-light);padding:7px 3px;border-radius:7px;cursor:pointer;transition:all .15s}
+.seg button.active{background:var(--white);color:var(--navy);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.check{display:flex;align-items:center;gap:7px;font-size:.68rem;cursor:pointer;color:var(--ink-light)}
+.check input{width:15px;height:15px;accent-color:var(--navy);cursor:pointer}
+.mini-up{border:2px dashed rgba(0,0,0,.14);border-radius:9px;padding:16px 10px;text-align:center;cursor:pointer;font-size:.72rem;color:var(--ink-light);background:#FBFBFA;transition:all .15s}
+.mini-up:hover,.mini-up.over{border-color:var(--navy);background:var(--navy-light)}
+.pat-info{display:none;align-items:center;gap:8px;margin-top:9px}
+.pat-info.show{display:flex}
+.pat-info img{width:40px;height:40px;object-fit:cover;border-radius:7px;border:1px solid var(--line)}
+.pat-info .m{flex:1;font-size:.64rem;color:var(--ink-light);word-break:break-all}
+.apply-box{background:var(--white);border-radius:14px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);padding:14px 17px}
+.apply-box .btn{width:100%;padding:11px;font-size:.82rem}
+.hint{font-size:.66rem;color:var(--ink-faint);margin-top:8px;line-height:1.6}
+.footer{text-align:center;font-size:.7rem;color:var(--ink-faint);padding:8px 20px 48px}
 </style>
 </head>
 <body>
 
 <div class="topbar">
-  <div class="topbar-brand"><a href="index.html">SOLARICH 1000</a></div>
-  <nav class="topbar-nav">
-    <a href="#overview" class="active">前提</a>
-    <a href="#plans">シート案</a>
-    <a href="#spec">仕様・制約</a>
-    <a href="#issues">論点</a>
-  </nav>
+  <div class="topbar-main">
+    <div class="brand">SOLARICH 1000 ｜ 着せ替えシート検討<small>色（RGB）と模様を本体に反映して比較する</small></div>
+    <div class="topbar-actions">
+      <button class="btn btn-sm" id="btnBase">ベース画像を差し替え</button>
+    </div>
+  </div>
+  <nav class="catnav" id="catnav"></nav>
 </div>
 
-<header class="header">
-  <h1>SOLARICH 1000 着せ替えシート検討</h1>
-  <p>本体に貼り替えるデザインシートの案・仕様・検討経緯をまとめた社内レビュー用ページです。</p>
-  <div class="header-meta">最終更新: 2026-08-14</div>
-</header>
+<div class="hero">
+  <h1>着せ替えシート デザイン検討</h1>
+  <p>枠をクリックすると詳細が開きます。色（RGB）または模様画像を指定し、「反映する」で本体に貼り付けた状態が表示されます。各案にはイメージ画像（設置シーンの写真）を並べて確認できます。</p>
+  <div class="stats">
+    <span><b id="statCat">0</b> カテゴリー</span>
+    <span><b id="statItem">0</b> 枠</span>
+    <span><b id="statFilled">0</b> 登録済み</span>
+  </div>
+</div>
 
-<main class="main">
+<div class="basebar">
+  <div class="basebar-inner" id="basebar">
+    <span class="lbl" id="baseLbl">ベース画像 読み込み中…</span>
+    <span class="msg" id="baseMsg">assets/base.png</span>
+  </div>
+</div>
 
-  <section class="section" id="overview">
-    <span class="section-badge">Overview</span>
-    <h2>検討の前提</h2>
-    <p class="desc">この検討で決めたいこと、決めなくてよいことの整理。</p>
-    <div class="card">
-      <h3>目的</h3>
-      <p>（ここに検討の目的を記載）</p>
-      <ul>
-        <li>対象製品：SOLARICH 1000</li>
-        <li>対象範囲：着せ替えシート</li>
-        <li>意思決定者：</li>
-      </ul>
-    </div>
-  </section>
-
-  <section class="section" id="plans">
-    <span class="section-badge">Plans</span>
-    <h2>シート案</h2>
-    <p class="desc">各案のデザイン意図と想定ユーザー。</p>
-    <div class="plan-grid">
-      <div class="plan">
-        <div class="plan-visual">IMAGE</div>
-        <div class="plan-body">
-          <span class="plan-tag">案A</span>
-          <h3>案タイトル</h3>
-          <p>デザインの説明。</p>
-          <div class="plan-note">意図：</div>
-        </div>
-      </div>
-      <div class="plan">
-        <div class="plan-visual">IMAGE</div>
-        <div class="plan-body">
-          <span class="plan-tag">案B</span>
-          <h3>案タイトル</h3>
-          <p>デザインの説明。</p>
-          <div class="plan-note">意図：</div>
-        </div>
-      </div>
-      <div class="plan">
-        <div class="plan-visual">IMAGE</div>
-        <div class="plan-body">
-          <span class="plan-tag">案C</span>
-          <h3>案タイトル</h3>
-          <p>デザインの説明。</p>
-          <div class="plan-note">意図：</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section" id="spec">
-    <span class="section-badge">Spec</span>
-    <h2>仕様・制約</h2>
-    <p class="desc">素材・サイズ・印刷・コストなど、デザインを縛る条件。</p>
-    <table class="tbl">
-      <thead><tr><th>項目</th><th>内容</th><th>備考</th></tr></thead>
-      <tbody>
-        <tr><td>素材</td><td>—</td><td></td></tr>
-        <tr><td>サイズ</td><td>—</td><td></td></tr>
-        <tr><td>印刷方式</td><td>—</td><td></td></tr>
-        <tr><td>色数</td><td>—</td><td></td></tr>
-        <tr><td>最小ロット</td><td>—</td><td></td></tr>
-        <tr><td>単価</td><td>—</td><td></td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section class="section" id="issues">
-    <span class="section-badge">Issues</span>
-    <h2>論点</h2>
-    <p class="desc">未決のものと、決まったもの。</p>
-    <div class="callout callout-open">（未決の論点をここに）</div>
-    <div class="callout callout-fix">（決定事項をここに）</div>
-  </section>
-
-</main>
-
+<main class="main" id="catalogRoot"></main>
 <div class="footer">SOLARICH 1000 着せ替えシート検討｜社内レビュー用</div>
 
+<!-- ============ detail ============ -->
+<div class="overlay" id="overlay">
+  <div class="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head">
+      <span class="cat" id="dCat">—</span>
+      <span class="no" id="dNo">No.01</span>
+      <input type="text" id="dName" placeholder="案の名前を入力">
+      <div class="nav">
+        <button class="btn btn-sm" id="dPrev">← 前</button>
+        <button class="btn btn-sm" id="dNext">次 →</button>
+        <button class="btn btn-sm btn-ghost" id="dClose">閉じる ✕</button>
+      </div>
+    </div>
+
+    <div class="sheet-body">
+      <div class="preview-col">
+        <div class="pv">
+          <div class="pv-title">本体プレビュー
+            <span class="sp">
+              <span class="state" id="applyState">反映前（ベースのまま）</span>
+              <label class="check"><input type="checkbox" id="dOutline"> 領域表示</label>
+            </span>
+          </div>
+          <div class="pv-canvas"><canvas id="dCanvas" width="1400" height="962"></canvas></div>
+        </div>
+
+        <div class="pv">
+          <div class="pv-title">イメージ画像（設置シーン）
+            <span class="sp">
+              <button class="btn btn-sm" id="dRoomPick">画像を選ぶ</button>
+              <button class="btn btn-sm btn-ghost" id="dRoomClear">削除</button>
+            </span>
+          </div>
+          <div id="dRoomWrap"></div>
+        </div>
+      </div>
+
+      <div class="ctrl-col">
+        <div class="apply-box">
+          <button class="btn btn-primary" id="btnApply">反映する</button>
+          <div class="hint">押すまではベース画像（反映前）のまま表示します。</div>
+        </div>
+
+        <div class="box">
+          <h4>シートの種類</h4>
+          <div class="seg" id="dMode">
+            <button data-mode="color" class="active">単色（RGB）</button>
+            <button data-mode="pattern">模様（画像）</button>
+          </div>
+
+          <div id="dColorArea">
+            <div class="field">
+              <div class="field-label">色</div>
+              <div class="color-row">
+                <input type="color" id="dPicker" value="#EE7A20">
+                <input type="text" id="dHex" value="#EE7A20" spellcheck="false">
+              </div>
+              <div class="rgb-grid">
+                <div><label>R</label><input type="number" id="dR" min="0" max="255"><input type="range" id="dRr" min="0" max="255"></div>
+                <div><label>G</label><input type="number" id="dG" min="0" max="255"><input type="range" id="dGr" min="0" max="255"></div>
+                <div><label>B</label><input type="number" id="dB" min="0" max="255"><input type="range" id="dBr" min="0" max="255"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="dPatArea" style="display:none">
+            <div class="field">
+              <div class="mini-up" id="dPatUp">模様画像をドロップ / クリックして選択</div>
+              <div class="pat-info" id="dPatInfo">
+                <img id="dPatThumb" alt=""><span class="m" id="dPatMeta"></span>
+                <button class="btn btn-sm btn-ghost" id="dPatClear">削除</button>
+              </div>
+            </div>
+            <div class="field">
+              <div class="field-label">配置</div>
+              <div class="seg" id="dFit">
+                <button data-fit="cover" class="active">全体に合わせる</button>
+                <button data-fit="repeat">繰り返し</button>
+              </div>
+            </div>
+            <div class="field"><div class="field-label">拡大率 <span class="val" id="vScale">100%</span></div><input type="range" id="dScale" min="10" max="400" value="100"></div>
+            <div class="field"><div class="field-label">横位置 <span class="val" id="vOffX">0</span></div><input type="range" id="dOffX" min="-100" max="100" value="0"></div>
+            <div class="field"><div class="field-label">縦位置 <span class="val" id="vOffY">0</span></div><input type="range" id="dOffY" min="-100" max="100" value="0"></div>
+            <div class="field"><div class="field-label">回転 <span class="val" id="vRot">0°</span></div><input type="range" id="dRot" min="-180" max="180" value="0"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="catalog.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
