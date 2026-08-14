@@ -890,7 +890,7 @@ function buildPrint() {
   return true;
 }
 
-$("btnExport").addEventListener("click", () => {
+$("btnExpPdf").addEventListener("click", () => {
   if (!S.base || !S.mask) { alert("画像の読み込みが終わっていません。"); return; }
   let ok;
   try { ok = buildPrint(); }
@@ -899,9 +899,200 @@ $("btnExport").addEventListener("click", () => {
     return;
   }
   if (!ok) return;
+  $("exportPanel").classList.remove("show");
   setTimeout(() => window.print(), 120);
 });
 window.addEventListener("afterprint", () => { $("printRoot").innerHTML = ""; });
+
+$("btnExport").addEventListener("click", e => {
+  e.stopPropagation();
+  $("savePanel").classList.remove("show");
+  $("exportPanel").classList.toggle("show");
+});
+document.addEventListener("click", e => {
+  const p = $("exportPanel");
+  if (p.classList.contains("show") && !p.contains(e.target)) p.classList.remove("show");
+});
+
+/* =========================================================
+   一覧の書き出し（PNG 1920×1080）
+   ページ構成はPDFと同じ。1ページ＝1枚のPNG
+   ========================================================= */
+const PNG = { W: 1920, H: 1080, PAD: 64 };
+
+function rr(g, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.lineTo(x + w - r, y); g.arcTo(x + w, y, x + w, y + r, r);
+  g.lineTo(x + w, y + h - r); g.arcTo(x + w, y + h, x + w - r, y + h, r);
+  g.lineTo(x + r, y + h); g.arcTo(x, y + h, x, y + h - r, r);
+  g.lineTo(x, y + r); g.arcTo(x, y, x + r, y, r);
+  g.closePath();
+}
+function hatch(g, x, y, w, h) {
+  g.save(); rr(g, x, y, w, h, 5); g.clip();
+  g.fillStyle = "#F7F6F4"; g.fillRect(x, y, w, h);
+  g.strokeStyle = "#EDEBE7"; g.lineWidth = 5;
+  for (let i = -h; i < w; i += 14) { g.beginPath(); g.moveTo(x + i, y + h); g.lineTo(x + i + h, y); g.stroke(); }
+  g.restore();
+}
+function clipText(g, text, max) {
+  if (g.measureText(text).width <= max) return text;
+  let t = text;
+  while (t.length > 1 && g.measureText(t + "…").width > max) t = t.slice(0, -1);
+  return t + "…";
+}
+function pngHeader(g, title, sub, right) {
+  const { PAD, W } = PNG;
+  g.textBaseline = "alphabetic"; g.textAlign = "left";
+  g.fillStyle = "#1F3A5F"; g.font = "900 32px 'Noto Sans JP', sans-serif";
+  g.fillText(title, PAD, PAD + 30);
+  const tw = g.measureText(title).width;
+  g.fillStyle = "#6E6B66"; g.font = "400 17px 'Noto Sans JP', sans-serif";
+  g.fillText(sub, PAD + tw + 18, PAD + 30);
+  g.fillStyle = "#9C9892"; g.textAlign = "right";
+  g.fillText(right, W - PAD, PAD + 30);
+  g.strokeStyle = "#1F3A5F"; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(PAD, PAD + 46); g.lineTo(W - PAD, PAD + 46); g.stroke();
+  g.textAlign = "left";
+  return PAD + 46;
+}
+function newPage() {
+  const c = document.createElement("canvas");
+  c.width = PNG.W; c.height = PNG.H;
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, PNG.W, PNG.H);
+  return { c, g };
+}
+
+function pngOverview(today, total) {
+  const { c, g } = newPage();
+  const { PAD, W, H } = PNG;
+  const top = pngHeader(g, "SOLARICH 1000　着せ替えシート 検討一覧",
+    `全体マップ　${CATALOG.length}カテゴリー / ${total}案`, today) + 26;
+
+  const labelW = 150, gap = 8, cols = ITEMS_PER_CATEGORY, rows = CATALOG.length, numH = 22;
+  const cellH = (H - PAD - (top + numH) - gap * (rows - 1)) / rows;
+  const cellW = cellH * 910 / 625;
+  const x0 = Math.max(PAD, (W - (labelW + cols * cellW + gap * cols)) / 2);
+
+  g.font = "700 13px 'Noto Sans JP', sans-serif";
+  g.fillStyle = "#9C9892"; g.textAlign = "center";
+  for (let i = 0; i < cols; i++)
+    g.fillText(String(i + 1).padStart(2, "0"), x0 + labelW + gap + i * (cellW + gap) + cellW / 2, top + 15);
+  g.textAlign = "left";
+
+  CATALOG.forEach((cat, r) => {
+    const y = top + numH + r * (cellH + gap);
+    g.fillStyle = "#1F3A5F"; g.font = "700 14px 'Noto Sans JP', sans-serif";
+    g.fillText(clipText(g, catNameOf(cat.id), labelW - 12), x0, y + cellH / 2 + 5);
+    cat.items.forEach((ci, i) => {
+      const item = S.items[ci.id];
+      const x = x0 + labelW + gap + i * (cellW + gap);
+      if (item.applied) {
+        const t = document.createElement("canvas");
+        t.width = Math.round(cellW * 2); t.height = Math.round(cellH * 2);
+        paint(t, item);
+        g.save(); rr(g, x, y, cellW, cellH, 4); g.clip();
+        g.drawImage(t, x, y, cellW, cellH); g.restore();
+      } else hatch(g, x, y, cellW, cellH);
+      g.strokeStyle = "#E2E0DC"; g.lineWidth = 1;
+      rr(g, x + .5, y + .5, cellW - 1, cellH - 1, 4); g.stroke();
+    });
+  });
+  return c;
+}
+
+function pngCategory(cat, items, today) {
+  const { c, g } = newPage();
+  const { PAD, W, H } = PNG;
+  const top = pngHeader(g, catNameOf(cat.id), `${items.length}案`,
+    `SOLARICH 1000　着せ替えシート 検討一覧　/　${today}`) + 30;
+
+  const cols = 5, gap = 26, footH = 62;
+  const imgW = (W - PAD * 2 - gap * (cols - 1)) / cols;
+  const imgH = imgW * 625 / 910;
+  const cellH = imgH + footH;
+  const rowsN = Math.ceil(items.length / cols);
+  const y0 = top + Math.max(0, (H - PAD - top - (rowsN * cellH + (rowsN - 1) * gap)) / 2);
+
+  items.forEach((item, i) => {
+    const x = PAD + (i % cols) * (imgW + gap);
+    const y = y0 + Math.floor(i / cols) * (cellH + gap);
+
+    g.save(); rr(g, x, y, imgW, cellH, 8); g.clip();
+    g.fillStyle = "#fff"; g.fillRect(x, y, imgW, cellH);
+    const t = document.createElement("canvas");
+    t.width = Math.round(imgW * 2); t.height = Math.round(imgH * 2);
+    paint(t, item);
+    g.drawImage(t, x, y, imgW, imgH);
+    g.restore();
+    g.strokeStyle = "#E2E0DC"; g.lineWidth = 1;
+    rr(g, x + .5, y + .5, imgW - 1, cellH - 1, 8); g.stroke();
+
+    const fy = y + imgH + 10, thW = 62, thH = 42;
+    if (item.room) {
+      g.save(); rr(g, x + 10, fy, thW, thH, 4); g.clip();
+      const s = Math.max(thW / item.room.naturalWidth, thH / item.room.naturalHeight);
+      g.drawImage(item.room, x + 10 + (thW - item.room.naturalWidth * s) / 2,
+        fy + (thH - item.room.naturalHeight * s) / 2,
+        item.room.naturalWidth * s, item.room.naturalHeight * s);
+      g.restore();
+    } else hatch(g, x + 10, fy, thW, thH);
+    g.strokeStyle = "#E2E0DC"; g.lineWidth = 1;
+    rr(g, x + 10.5, fy + .5, thW - 1, thH - 1, 4); g.stroke();
+
+    const tx = x + 10 + thW + 10, tmax = imgW - (thW + 30);
+    g.textAlign = "left";
+    g.fillStyle = "#1F3A5F"; g.font = "900 22px 'Noto Sans JP', sans-serif";
+    g.fillText(String(item.no).padStart(2, "0"), tx, fy + 18);
+    g.fillStyle = "#1E1E1C"; g.font = "700 14px 'Noto Sans JP', sans-serif";
+    g.fillText(clipText(g, item.name || "（名称未設定）", tmax), tx, fy + 34);
+    g.fillStyle = "#6E6B66"; g.font = "400 12px 'Noto Sans JP', sans-serif";
+    const label = item.mode === "pattern" && item.pattern ? (item.patternName || "模様") : item.hex.toUpperCase();
+    g.fillText(clipText(g, label, tmax), tx, fy + 50);
+  });
+  return c;
+}
+
+function downloadCanvas(canvas, name) {
+  return new Promise(res => canvas.toBlob(b => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = name;
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); res(); }, 400);
+  }, "image/png"));
+}
+
+$("btnExpPng").addEventListener("click", async () => {
+  if (!S.base || !S.mask) { alert("画像の読み込みが終わっていません。"); return; }
+  const filled = Object.values(S.items).filter(i => i.applied);
+  const msg = $("expMsg");
+  if (!filled.length) { msg.className = "saves-msg err"; msg.textContent = "登録済みの案がありません。"; return; }
+
+  const btn = $("btnExpPng"); btn.disabled = true;
+  msg.className = "saves-msg"; msg.textContent = "書き出し中…";
+  try {
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+    const today = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" });
+    const pages = [["01_全体マップ", pngOverview(today, filled.length)]];
+    let n = 1;
+    for (const cat of CATALOG) {
+      const items = cat.items.map(ci => S.items[ci.id]).filter(i => i.applied);
+      if (!items.length) continue;
+      n++;
+      pages.push([`${String(n).padStart(2, "0")}_${safeName(catNameOf(cat.id))}`, pngCategory(cat, items, today)]);
+    }
+    for (const [name, cv] of pages) await downloadCanvas(cv, name + ".png");
+    msg.className = "saves-msg ok";
+    msg.textContent = `${pages.length}枚を書き出しました。`;
+  } catch (e) {
+    msg.className = "saves-msg err";
+    msg.textContent = "書き出せませんでした：" + e.message;
+  } finally { btn.disabled = false; }
+});
 
 /* ベース画像 */
 function setBase(img) {
