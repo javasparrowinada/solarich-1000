@@ -132,8 +132,12 @@ input[type=range]{width:100%;accent-color:var(--navy)}
 /* ---------- 柄の生成 ---------- */
 #genPrompt{font-size:.78rem;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;background:var(--white);color:var(--ink);resize:vertical;line-height:1.6;font-family:inherit}
 #genPrompt:focus{outline:2px solid rgba(31,58,95,.25);outline-offset:-1px}
-.gen-row{display:flex;gap:7px;margin-top:7px}
-.gen-row input{flex:1;min-width:0}
+.gen-row{display:flex;gap:7px;margin-top:7px;align-items:center}
+.chip-group{display:flex;gap:7px;margin-top:8px;align-items:flex-start}
+.chip-lbl{font-size:.62rem;font-weight:700;color:var(--ink-faint);flex:none;width:2.2em;padding-top:3px}
+.chips{display:flex;flex-wrap:wrap;gap:4px;flex:1}
+.chips button{font-size:.64rem;font-family:inherit;border:1px solid var(--line);background:var(--white);color:var(--ink-light);padding:2px 8px;border-radius:100px;cursor:pointer}
+.chips button:hover{background:var(--navy-light);color:var(--navy);border-color:transparent}
 .gen-status{font-size:.66rem;margin-top:7px;min-height:1.1em;color:var(--ink-faint);line-height:1.6}
 .gen-status.err{color:#C94C4C}
 .gen-status.ok{color:#3F8F5E}
@@ -287,16 +291,18 @@ input[type=range]{width:100%;accent-color:var(--navy)}
           <div id="dPatArea" style="display:none">
             <div class="field">
               <div class="field-label">プロンプトから生成</div>
-              <textarea id="genPrompt" rows="3" placeholder="例：北欧風の幾何学模様、青とベージュ、落ち着いたトーン"></textarea>
+              <textarea id="genPrompt" rows="2" placeholder="例：くすんだ青とベージュの細かいストライプ"></textarea>
               <div class="gen-row">
-                <input type="password" id="genKey" placeholder="Gemini APIキー" autocomplete="off" spellcheck="false">
                 <button class="btn btn-sm btn-primary" id="btnGen">生成</button>
+                <button class="btn btn-sm" id="btnGenVar">別パターン</button>
               </div>
               <div class="gen-status" id="genStatus"></div>
               <details class="gen-adv">
-                <summary>モデル</summary>
-                <input type="text" id="genModel" value="gemini-2.5-flash-image" spellcheck="false">
-                <div class="hint">生成に失敗する場合はモデル名を変えてください。APIキーはこのブラウザのメモリ上だけで扱い、保存も送信もしません。</div>
+                <summary>使えることば</summary>
+                <div class="chip-group"><span class="chip-lbl">柄</span><div class="chips" id="chipsType"></div></div>
+                <div class="chip-group"><span class="chip-lbl">色</span><div class="chips" id="chipsColor"></div></div>
+                <div class="chip-group"><span class="chip-lbl">調子</span><div class="chips" id="chipsTone"></div></div>
+                <div class="hint">クリックでプロンプトに追加されます。色は <code>#1F3A5F</code> のような指定も可。色を書かない場合は「単色（RGB）」で指定中の色を使います。</div>
               </details>
             </div>
 
@@ -321,12 +327,29 @@ input[type=range]{width:100%;accent-color:var(--navy)}
             <div class="field"><div class="field-label">回転 <span class="val" id="vRot">0°</span></div><input type="range" id="dRot" min="-180" max="180" value="0"></div>
           </div>
         </div>
+
+        <div class="box">
+          <h4>印字（アイコン・文字・ロゴ）</h4>
+          <div class="seg" id="dPrint">
+            <button data-print="white" class="active">白</button>
+            <button data-print="black">黒</button>
+            <button data-print="color">カラー</button>
+            <button data-print="none">なし</button>
+          </div>
+          <div class="field" id="dPrintColorRow" style="display:none">
+            <div class="color-row">
+              <input type="color" id="dPrintPicker" value="#F3BE18">
+              <input type="text" id="dPrintHex" value="#F3BE18" spellcheck="false">
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script src="catalog.js"></script>
+<script src="pattern.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

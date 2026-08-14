@@ -20,8 +20,9 @@ const VIEW = { x0: 0.045, y0: 0.175, x1: 0.955, y1: 0.800 };
    ========================================================= */
 const S = {
   base: null,
-  mask: null,  // cutpass.svg
-  items: {},   // id -> item
+  mask: null,      // cutpass.svg（シート形状）
+  printSrc: null,  // print.svg のテキスト（印字レイヤー）
+  items: {},       // id -> item
   current: null
 };
 
@@ -34,6 +35,7 @@ for (const cat of CATALOG) {
       hex: "#EE7A20",
       pattern: null, patternName: "", prompt: "",
       fit: "cover", scale: 100, offX: 0, offY: 0, rot: 0,
+      print: "white", printColor: "#F3BE18",
       applied: false,
       room: null
     };
@@ -81,6 +83,38 @@ function makeLayer(cw, ch, item) {
   return _layer;
 }
 
+/* ---------------------------------------------------------
+   印字レイヤー（assets/print.svg の .cls-3 だけを任意色で描く）
+   シート形状と同じ viewBox なので、MASK と同じ位置に重ねればよい
+   --------------------------------------------------------- */
+const printCache = new Map();   // color -> {img, ready}
+
+function printImage(color) {
+  if (!S.printSrc) return null;
+  let e = printCache.get(color);
+  if (!e) {
+    const img = new Image();
+    e = { img, ready: false };
+    printCache.set(color, e);
+    img.onload = () => {
+      e.ready = true;
+      Object.keys(S.items).forEach(refreshCard);
+      if (S.current) repaintDetail();
+    };
+    /* .cls-2（シート形状）は opacity:0 のまま、.cls-3 の色だけ差し替える */
+    const svg = S.printSrc.replace(/fill:\s*#fff/i, `fill:${color}`);
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+  return e.ready ? e.img : null;
+}
+
+function printColorOf(item) {
+  if (item.print === "none") return null;
+  if (item.print === "black") return "#1E1E1E";
+  if (item.print === "color") return item.printColor || "#F3BE18";
+  return "#FFFFFF";
+}
+
 /* キャンバス1枚を描く。item.applied が false ならベース画像のまま */
 function paint(canvas, item, showOutline) {
   const g = canvas.getContext("2d");
@@ -96,6 +130,13 @@ function paint(canvas, item, showOutline) {
   if (item && item.applied) {
     const layer = makeLayer(cw, ch, item);
     if (layer) g.drawImage(layer, 0, 0);
+
+    const pc = printColorOf(item);
+    const pimg = pc && printImage(pc);
+    if (pimg) {
+      const m = mapper(cw, ch);
+      g.drawImage(pimg, m.x(MASK.x), m.y(MASK.y), m.w(MASK.w), m.h(MASK.h));
+    }
   }
 
   if (showOutline) {
@@ -277,6 +318,11 @@ function openDetail(id) {
   $("dOffY").value = it.offY;   $("vOffY").textContent = it.offY;
   $("dRot").value = it.rot;     $("vRot").textContent = it.rot + "°";
 
+  setSeg("dPrint", "print", it.print);
+  $("dPrintColorRow").style.display = it.print === "color" ? "" : "none";
+  $("dPrintPicker").value = it.printColor;
+  $("dPrintHex").value = it.printColor.toUpperCase();
+
   $("genPrompt").value = it.prompt || "";
   genStatus("");
 
@@ -430,83 +476,29 @@ $("dHex").addEventListener("input", e => {
 }));
 
 /* ---------------------------------------------------------
-   プロンプトから柄を生成（Gemini API をブラウザから直接呼ぶ）
-   APIキーはこのページのメモリ上だけに置く。保存はしない。
+   プロンプト（キーワード）から柄を生成
+   外部APIは使わず、pattern.js がブラウザ内で描く
    --------------------------------------------------------- */
-S.apiKey = "";
-
-/* 生成させたいのは「シートに貼る平らな柄」なので、その条件を付け足す */
-function wrapPrompt(p) {
-  return `${p}
-
-上記のイメージで、製品に貼るシート用のテクスチャ画像を作ってください。
-条件:
-- 真上から見た平らな柄。立体的な影・光沢・反射・パースを付けない
-- 全面が柄で埋まっていること。余白・枠・背景の抜けを作らない
-- 文字・ロゴ・数字・人物・製品の絵を入れない
-- タイル状に繰り返しても継ぎ目が目立たない構成
-- 正方形`;
-}
-
 function genStatus(msg, cls) {
   const el = $("genStatus");
   el.textContent = msg;
   el.className = "gen-status" + (cls ? " " + cls : "");
 }
 
-async function callGemini(model, key, prompt, withModalities) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const body = { contents: [{ parts: [{ text: prompt }] }] };
-  if (withModalities) body.generationConfig = { responseModalities: ["TEXT", "IMAGE"] };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-    body: JSON.stringify(body)
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const m = json?.error?.message || `${res.status} ${res.statusText}`;
-    const err = new Error(m);
-    err.status = res.status;
-    throw err;
-  }
-  const parts = json?.candidates?.[0]?.content?.parts || [];
-  const inline = parts.find(p => p.inlineData?.data);
-  if (!inline) {
-    const text = parts.map(p => p.text).filter(Boolean).join(" ").slice(0, 200);
-    throw new Error(text ? `画像が返りませんでした：${text}` : "画像が返りませんでした。");
-  }
-  return `data:${inline.inlineData.mimeType || "image/png"};base64,${inline.inlineData.data}`;
-}
-
-async function generatePattern() {
+async function generatePattern(nextVariant) {
   const it = cur(); if (!it) return;
   const prompt = $("genPrompt").value.trim();
   if (!prompt) { genStatus("プロンプトを入力してください。", "err"); return; }
 
-  const key = $("genKey").value.trim() || S.apiKey;
-  if (!key) { genStatus("Gemini APIキーを入力してください。", "err"); return; }
-  S.apiKey = key;
-
-  const model = $("genModel").value.trim() || "gemini-2.5-flash-image";
-  const btn = $("btnGen");
-  btn.disabled = true;
-  genStatus("生成中…", "busy");
+  it.variant = nextVariant ? (it.variant || 0) + 1 : 0;
 
   try {
-    let dataUrl;
-    try {
-      dataUrl = await callGemini(model, key, wrapPrompt(prompt), false);
-    } catch (e) {
-      /* responseModalities を要求するモデル向けにもう一度 */
-      if (/modalit/i.test(e.message) || /画像が返りませんでした/.test(e.message)) {
-        dataUrl = await callGemini(model, key, wrapPrompt(prompt), true);
-      } else throw e;
-    }
-
+    const out = PATTERN.generate(prompt, it.hex, it.variant);
     const img = new Image();
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = dataUrl; });
+    await new Promise((res, rej) => {
+      img.onload = res; img.onerror = rej;
+      img.src = out.canvas.toDataURL("image/png");
+    });
 
     it.pattern = img;
     it.patternName = prompt.length > 28 ? prompt.slice(0, 28) + "…" : prompt;
@@ -517,20 +509,44 @@ async function generatePattern() {
     $("dPatArea").style.display = "";
     refreshPatInfo(); repaintDetail(); refreshCard(it.id);
 
-    genStatus(it.applied
-      ? `生成しました（${img.naturalWidth}×${img.naturalHeight}px）。`
-      : `生成しました（${img.naturalWidth}×${img.naturalHeight}px）。「反映する」を押すと本体に反映されます。`, "ok");
+    const cols = out.colors.slice(0, 3).join(" / ");
+    genStatus(`「${out.label}」で生成（${cols}）` +
+      (it.applied ? "" : "。「反映する」を押すと本体に反映されます"), "ok");
   } catch (e) {
     genStatus("生成できませんでした：" + e.message, "err");
-  } finally {
-    btn.disabled = false;
   }
 }
-$("btnGen").addEventListener("click", generatePattern);
+$("btnGen").addEventListener("click", () => generatePattern(false));
+$("btnGenVar").addEventListener("click", () => generatePattern(true));
 $("genPrompt").addEventListener("input", e => { if (S.current) cur().prompt = e.target.value; });
 $("genPrompt").addEventListener("keydown", e => {
-  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generatePattern();
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") generatePattern(false);
 });
+
+/* 使えることばのチップ */
+(function buildChips() {
+  const add = word => {
+    const t = $("genPrompt");
+    t.value = (t.value.trim() + " " + word).trim();
+    if (S.current) cur().prompt = t.value;
+    t.focus();
+  };
+  const fill = (elId, words) => {
+    const box = $(elId);
+    for (const w of words) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = w;
+      b.addEventListener("click", () => add(w));
+      box.appendChild(b);
+    }
+  };
+  fill("chipsType", PATTERN.TYPES.map(t => t[1][0]));
+  fill("chipsColor", ["白", "黒", "グレー", "ネイビー", "青", "水色", "緑", "オリーブ", "カーキ",
+                      "イエロー", "マスタード", "オレンジ", "テラコッタ", "ブラウン", "ベージュ",
+                      "ピンク", "パープル", "レッド"]);
+  fill("chipsTone", ["くすんだ", "淡い", "濃い", "ビビッド", "落ち着いた", "モノトーン",
+                     "細かい", "大きい", "斜め"]);
+})();
 
 $("dPatUp").addEventListener("click", () => pickFile(setPattern));
 wireDrop($("dPatUp"), setPattern);
@@ -566,6 +582,32 @@ for (const [el, key, out, fmt] of sliders) {
     repaintDetail(); refreshCard(cur().id);
   });
 }
+
+/* 印字 */
+document.querySelectorAll("#dPrint button").forEach(b => {
+  b.addEventListener("click", () => {
+    const it = cur();
+    it.print = b.dataset.print;
+    setSeg("dPrint", "print", it.print);
+    $("dPrintColorRow").style.display = it.print === "color" ? "" : "none";
+    repaintDetail(); refreshCard(it.id);
+  });
+});
+function setPrintColor(hex) {
+  const it = cur(); if (!it) return;
+  it.printColor = hex.toUpperCase();
+  it.print = "color";
+  setSeg("dPrint", "print", "color");
+  $("dPrintColorRow").style.display = "";
+  $("dPrintPicker").value = hex;
+  $("dPrintHex").value = hex.toUpperCase();
+  repaintDetail(); refreshCard(it.id);
+}
+$("dPrintPicker").addEventListener("input", e => setPrintColor(e.target.value));
+$("dPrintHex").addEventListener("input", e => {
+  const h = e.target.value.trim().replace(/^#?/, "#");
+  if (/^#[0-9a-fA-F]{6}$/.test(h)) setPrintColor(h);
+});
 
 $("dRoomPick").addEventListener("click", () => pickFile(setRoom));
 $("dRoomClear").addEventListener("click", () => {
@@ -723,5 +765,15 @@ $("btnBase").addEventListener("click", () => pickFile(async f => setBase(await l
   };
   img.src = "assets/cutpass.svg";
 })();
+
+/* 印字レイヤー（assets/print.svg） */
+fetch("assets/print.svg")
+  .then(r => r.ok ? r.text() : Promise.reject(new Error(r.status)))
+  .then(t => {
+    S.printSrc = t;
+    Object.keys(S.items).forEach(refreshCard);
+    if (S.current) repaintDetail();
+  })
+  .catch(() => { console.warn("assets/print.svg を読み込めませんでした"); });
 
 buildCatalog();
