@@ -26,10 +26,14 @@ const S = {
   current: null
 };
 
+S.catNames = {};
+for (const cat of CATALOG) S.catNames[cat.id] = cat.name;
+const catNameOf = id => S.catNames[id] || id;
+
 for (const cat of CATALOG) {
   for (const it of cat.items) {
     S.items[it.id] = {
-      id: it.id, catId: cat.id, catName: cat.name, no: it.no,
+      id: it.id, catId: cat.id, no: it.no,
       name: it.name || "",
       mode: "color",
       hex: "#EE7A20",
@@ -109,14 +113,13 @@ function printImage(color) {
 }
 
 function printColorOf(item) {
-  if (item.print === "none") return null;
   if (item.print === "black") return "#1E1E1E";
   if (item.print === "color") return item.printColor || "#F3BE18";
   return "#FFFFFF";
 }
 
 /* キャンバス1枚を描く。item.applied が false ならベース画像のまま */
-function paint(canvas, item, showOutline) {
+function paint(canvas, item) {
   const g = canvas.getContext("2d");
   const cw = canvas.width, ch = canvas.height;
   g.clearRect(0, 0, cw, ch);
@@ -137,11 +140,6 @@ function paint(canvas, item, showOutline) {
       const m = mapper(cw, ch);
       g.drawImage(pimg, m.x(MASK.x), m.y(MASK.y), m.w(MASK.w), m.h(MASK.h));
     }
-  }
-
-  if (showOutline) {
-    const layer = makeLayer(cw, ch, { mode: "color", hex: "#FF2D2D" });
-    if (layer) { g.save(); g.globalAlpha = 0.45; g.drawImage(layer, 0, 0); g.restore(); }
   }
 }
 
@@ -212,13 +210,21 @@ function buildCatalog() {
 
   for (const cat of CATALOG) {
     const a = document.createElement("a");
-    a.href = "#" + cat.id; a.textContent = cat.name;
+    a.href = "#" + cat.id; a.textContent = catNameOf(cat.id);
+    a.dataset.cat = cat.id;
     nav.appendChild(a);
 
     const sec = document.createElement("section");
     sec.className = "cat"; sec.id = cat.id;
     sec.innerHTML = `<div class="cat-head"><span class="cat-num">${cat.id.replace("c", "")}</span>
-        <h2>${cat.name}</h2><span class="cat-count">${cat.items.length}枠</span></div>`;
+        <input class="cat-name-input" data-cat="${cat.id}" value="${catNameOf(cat.id)}"
+               title="クリックして名前を変更できます">
+        <span class="cat-count">${cat.items.length}枠</span></div>`;
+    sec.querySelector(".cat-name-input").addEventListener("input", e => {
+      S.catNames[cat.id] = e.target.value;
+      a.textContent = e.target.value;
+      if (S.current && cur().catId === cat.id) $("dCat").textContent = e.target.value;
+    });
     const grid = document.createElement("div");
     grid.className = "grid";
     for (const it of cat.items) grid.appendChild(buildCard(S.items[it.id]));
@@ -255,7 +261,7 @@ function buildCard(item) {
 function refreshCard(id) {
   const item = S.items[id], el = cardEl[id];
   if (!el) return;
-  paint(cardCanvas[id], item, false);
+  paint(cardCanvas[id], item);
 
   const chip = el.querySelector(".card-chip");
   const name = el.querySelector(".card-name");
@@ -300,7 +306,7 @@ function openDetail(id) {
   S.current = id;
   const it = S.items[id];
 
-  $("dCat").textContent = it.catName;
+  $("dCat").textContent = catNameOf(it.catId);
   $("dNo").textContent = "No." + String(it.no).padStart(2, "0");
   $("dName").value = it.name;
 
@@ -344,7 +350,7 @@ function closeDetail() {
 function cur() { return S.items[S.current]; }
 
 function repaintDetail() {
-  paint($("dCanvas"), cur(), $("dOutline").checked);
+  paint($("dCanvas"), cur());
 }
 
 function refreshApplyBtn() {
@@ -415,6 +421,7 @@ function refreshRoom() {
 async function setRoom(file) {
   const it = cur(); if (!it) return;
   it.room = await loadFile(file);
+  it.roomBlob = file;          // 保存スロット用に原本を持っておく
   refreshRoom();
   refreshCard(it.id);
 }
@@ -501,6 +508,8 @@ async function generatePattern(nextVariant) {
     });
 
     it.pattern = img;
+    it.patternKind = "gen";
+    it.patternBlob = null;
     it.patternName = prompt.length > 28 ? prompt.slice(0, 28) + "…" : prompt;
     it.prompt = prompt;
     it.mode = "pattern";
@@ -553,6 +562,8 @@ wireDrop($("dPatUp"), setPattern);
 async function setPattern(file) {
   const it = cur(); if (!it) return;
   it.pattern = await loadFile(file);
+  it.patternBlob = file;       // 保存スロット用
+  it.patternKind = "file";
   it.patternName = file.name;
   it.mode = "pattern";
   setSeg("dMode", "mode", "pattern");
@@ -562,7 +573,7 @@ async function setPattern(file) {
 }
 $("dPatClear").addEventListener("click", () => {
   const it = cur();
-  it.pattern = null; it.patternName = "";
+  it.pattern = null; it.patternName = ""; it.patternKind = null; it.patternBlob = null;
   refreshPatInfo(); repaintDetail(); refreshCard(it.id);
 });
 
@@ -611,9 +622,171 @@ $("dPrintHex").addEventListener("input", e => {
 
 $("dRoomPick").addEventListener("click", () => pickFile(setRoom));
 $("dRoomClear").addEventListener("click", () => {
-  cur().room = null; refreshRoom(); refreshCard(cur().id);
+  cur().room = null; cur().roomBlob = null; refreshRoom(); refreshCard(cur().id);
 });
-$("dOutline").addEventListener("change", repaintDetail);
+
+/* =========================================================
+   単体の書き出し（PNG）
+   ========================================================= */
+function safeName(s) { return String(s).replace(/[\\/:*?"<>|]/g, "_").trim(); }
+
+$("dDownload").addEventListener("click", () => {
+  const it = cur(); if (!it) return;
+  const W = 2400;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = Math.round(W * (VIEW.y1 - VIEW.y0) / (VIEW.x1 - VIEW.x0));
+  paint(c, it);
+  const parts = [safeName(catNameOf(it.catId)), String(it.no).padStart(2, "0")];
+  if (it.name) parts.push(safeName(it.name));
+  if (!it.applied) parts.push("反映前");
+  c.toBlob(blob => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = parts.join("_") + ".png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }, "image/png");
+});
+
+/* =========================================================
+   保存スロット（3件・IndexedDB）
+   生成した柄はプロンプトから作り直せるので画像は保存しない。
+   アップロードした画像だけ原本を保存する。
+   ========================================================= */
+const DB = (() => {
+  let p;
+  const open = () => p || (p = new Promise((res, rej) => {
+    const r = indexedDB.open("solarich-1000", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("slots");
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  }));
+  const store = async mode => (await open()).transaction("slots", mode).objectStore("slots");
+  const wrap = q => new Promise((res, rej) => { q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); });
+  return {
+    async put(k, v) { return wrap((await store("readwrite")).put(v, k)); },
+    async get(k) { return wrap((await store("readonly")).get(k)); },
+    async del(k) { return wrap((await store("readwrite")).delete(k)); }
+  };
+})();
+
+const SLOTS = [1, 2, 3];
+const slotKey = n => "slot" + n;
+
+function snapshot() {
+  const items = [];
+  for (const it of Object.values(S.items)) {
+    const used = it.applied || it.name || it.room || it.pattern || it.prompt;
+    if (!used) continue;
+    items.push({
+      id: it.id, name: it.name, mode: it.mode, hex: it.hex,
+      fit: it.fit, scale: it.scale, offX: it.offX, offY: it.offY, rot: it.rot,
+      print: it.print, printColor: it.printColor, applied: it.applied,
+      prompt: it.prompt || "", variant: it.variant || 0,
+      patternKind: it.patternKind || (it.pattern ? "gen" : null),
+      patternName: it.patternName || "",
+      patternBlob: it.patternKind === "file" ? it.patternBlob : null,
+      roomBlob: it.roomBlob || null
+    });
+  }
+  return { savedAt: new Date().toISOString(), catNames: { ...S.catNames }, items };
+}
+
+async function restore(data) {
+  /* いったん全部まっさらに戻す */
+  for (const it of Object.values(S.items)) {
+    Object.assign(it, {
+      name: "", mode: "color", hex: "#EE7A20",
+      pattern: null, patternBlob: null, patternKind: null, patternName: "", prompt: "", variant: 0,
+      fit: "cover", scale: 100, offX: 0, offY: 0, rot: 0,
+      print: "white", printColor: "#F3BE18", applied: false, room: null, roomBlob: null
+    });
+  }
+  S.catNames = { ...data.catNames };
+
+  for (const s of data.items) {
+    const it = S.items[s.id];
+    if (!it) continue;
+    Object.assign(it, {
+      name: s.name, mode: s.mode, hex: s.hex,
+      fit: s.fit, scale: s.scale, offX: s.offX, offY: s.offY, rot: s.rot,
+      print: s.print, printColor: s.printColor, applied: s.applied,
+      prompt: s.prompt, variant: s.variant,
+      patternKind: s.patternKind, patternName: s.patternName
+    });
+    if (s.patternKind === "gen" && s.prompt) {
+      const out = PATTERN.generate(s.prompt, s.hex, s.variant || 0);
+      it.pattern = await new Promise(res => {
+        const img = new Image(); img.onload = () => res(img); img.src = out.canvas.toDataURL("image/png");
+      });
+    } else if (s.patternBlob) {
+      it.patternBlob = s.patternBlob;
+      it.pattern = await loadFile(s.patternBlob);
+    }
+    if (s.roomBlob) {
+      it.roomBlob = s.roomBlob;
+      it.room = await loadFile(s.roomBlob);
+    }
+  }
+  buildCatalog();
+  if (S.current) openDetail(S.current);
+}
+
+function savesMsg(m, cls) {
+  const el = $("savesMsg");
+  el.textContent = m; el.className = "saves-msg" + (cls ? " " + cls : "");
+}
+
+async function renderSlots() {
+  const list = $("slotList");
+  list.innerHTML = "";
+  for (const n of SLOTS) {
+    const data = await DB.get(slotKey(n)).catch(() => null);
+    const row = document.createElement("div");
+    row.className = "slot";
+    const when = data
+      ? new Date(data.savedAt).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
+        + `　${data.items.filter(i => i.applied).length}案`
+      : "未保存";
+    row.innerHTML = `<div class="slot-i"><b>スロット${n}</b><span class="slot-meta">${when}</span></div>`;
+    const mk = (label, cls, fn) => {
+      const b = document.createElement("button");
+      b.className = "btn btn-sm" + (cls ? " " + cls : "");
+      b.textContent = label;
+      b.addEventListener("click", fn);
+      return b;
+    };
+    row.appendChild(mk("保存", "", async () => {
+      if (data && !confirm(`スロット${n} を上書きします。よろしいですか？`)) return;
+      try { await DB.put(slotKey(n), snapshot()); savesMsg(`スロット${n} に保存しました。`, "ok"); renderSlots(); }
+      catch (e) { savesMsg("保存できませんでした：" + e.message, "err"); }
+    }));
+    if (data) {
+      row.appendChild(mk("読込", "", async () => {
+        if (!confirm(`スロット${n} を読み込みます。いまの内容は失われます。よろしいですか？`)) return;
+        try { await restore(data); savesMsg(`スロット${n} を読み込みました。`, "ok"); }
+        catch (e) { savesMsg("読み込めませんでした：" + e.message, "err"); }
+      }));
+      row.appendChild(mk("削除", "btn-ghost", async () => {
+        if (!confirm(`スロット${n} を削除します。よろしいですか？`)) return;
+        await DB.del(slotKey(n)); savesMsg(`スロット${n} を削除しました。`); renderSlots();
+      }));
+    }
+    list.appendChild(row);
+  }
+}
+
+$("btnSaves").addEventListener("click", e => {
+  e.stopPropagation();
+  const p = $("savePanel");
+  p.classList.toggle("show");
+  if (p.classList.contains("show")) renderSlots();
+});
+document.addEventListener("click", e => {
+  const p = $("savePanel");
+  if (p.classList.contains("show") && !p.contains(e.target)) p.classList.remove("show");
+});
 
 /* =========================================================
    一覧の書き出し（A4横 / ブラウザの印刷 → PDFで保存）
@@ -626,7 +799,7 @@ function shot(item, w) {
   const c = document.createElement("canvas");
   c.width = w;
   c.height = Math.round(w * (VIEW.y1 - VIEW.y0) / (VIEW.x1 - VIEW.x0));
-  paint(c, item, false);
+  paint(c, item);
   return c.toDataURL("image/png");
 }
 
@@ -659,7 +832,7 @@ function buildPrint() {
   map.appendChild(el("div"));
   for (let i = 1; i <= ITEMS_PER_CATEGORY; i++) map.appendChild(el("div", "colno", String(i).padStart(2, "0")));
   for (const cat of CATALOG) {
-    map.appendChild(el("div", "rowlbl", cat.name));
+    map.appendChild(el("div", "rowlbl", catNameOf(cat.id)));
     for (const ci of cat.items) {
       const item = S.items[ci.id];
       if (item.applied) {
@@ -682,7 +855,7 @@ function buildPrint() {
 
     const pg = el("div", "p-page");
     pg.appendChild(el("div", "p-head",
-      `<span class="t">${cat.name}</span>
+      `<span class="t">${catNameOf(cat.id)}</span>
        <span class="s">${items.length}案</span>
        <span class="r">SOLARICH 1000　着せ替えシート 検討一覧　/　${today}</span>`));
 

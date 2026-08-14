@@ -53,8 +53,22 @@ button,input,select{font-family:inherit}
 .cat{margin-top:40px;scroll-margin-top:110px}
 .cat-head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:14px}
 .cat-num{font-size:.66rem;font-weight:900;letter-spacing:.08em;color:var(--white);background:var(--navy);padding:3px 9px;border-radius:100px}
-.cat-head h2{font-size:1.1rem;font-weight:900}
+.cat-name-input{font-size:1.1rem;font-weight:900;font-family:inherit;color:var(--ink);border:1px solid transparent;border-radius:8px;padding:2px 8px;background:transparent;min-width:14ch;max-width:28ch}
+.cat-name-input:hover{background:#EDECE9}
+.cat-name-input:focus{outline:2px solid rgba(31,58,95,.28);background:var(--white)}
 .cat-count{font-size:.7rem;color:var(--ink-faint)}
+
+/* ---------- 保存スロット ---------- */
+.saves{display:none;position:absolute;right:24px;top:100%;z-index:70;background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-lg);padding:14px 16px;width:340px}
+.saves.show{display:block}
+.saves-head{font-size:.72rem;font-weight:900;color:var(--navy);margin-bottom:10px;display:flex;flex-direction:column}
+.saves-head span{font-weight:400;font-size:.64rem;color:var(--ink-faint)}
+.slot{display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid var(--line)}
+.slot-i{flex:1;min-width:0;line-height:1.35}
+.slot-i b{font-size:.76rem;display:block}
+.slot-meta{font-size:.62rem;color:var(--ink-faint)}
+.saves-msg{font-size:.66rem;margin-top:8px;min-height:1.1em;color:var(--ink-faint)}
+.saves-msg.ok{color:#3F8F5E}.saves-msg.err{color:#C94C4C}
 
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
 .card{background:var(--white);border-radius:14px;border:1px solid rgba(0,0,0,.05);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;transition:transform .15s,box-shadow .15s;text-align:left;padding:0;width:100%;display:block}
@@ -194,10 +208,17 @@ input[type=range]{width:100%;accent-color:var(--navy)}
     <div class="brand">SOLARICH 1000 ｜ 着せ替えシート検討<small>色（RGB）と模様を本体に反映して比較する</small></div>
     <div class="topbar-actions">
       <button class="btn btn-sm" id="btnBase">ベース画像を差し替え</button>
+      <button class="btn btn-sm" id="btnSaves">保存 / 読込</button>
       <button class="btn btn-sm btn-primary" id="btnExport">一覧をPDFで書き出し</button>
     </div>
   </div>
   <nav class="catnav" id="catnav"></nav>
+
+  <div class="saves" id="savePanel">
+    <div class="saves-head">保存スロット<span>3件まで。ブラウザ内に保存されます</span></div>
+    <div id="slotList"></div>
+    <div class="saves-msg" id="savesMsg"></div>
+  </div>
 </div>
 
 <div class="hero">
@@ -243,7 +264,7 @@ input[type=range]{width:100%;accent-color:var(--navy)}
           <div class="pv-title">本体プレビュー
             <span class="sp">
               <span class="state" id="applyState">反映前（ベースのまま）</span>
-              <label class="check"><input type="checkbox" id="dOutline"> 領域表示</label>
+              <button class="btn btn-sm" id="dDownload">PNG保存</button>
             </span>
           </div>
           <div class="pv-canvas"><canvas id="dCanvas" width="1400" height="962"></canvas></div>
@@ -334,7 +355,6 @@ input[type=range]{width:100%;accent-color:var(--navy)}
             <button data-print="white" class="active">白</button>
             <button data-print="black">黒</button>
             <button data-print="color">カラー</button>
-            <button data-print="none">なし</button>
           </div>
           <div class="field" id="dPrintColorRow" style="display:none">
             <div class="color-row">
